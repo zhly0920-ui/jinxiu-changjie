@@ -229,17 +229,18 @@
       artPlate('ribbon',66,safe+126,258,42);quietLabel('楚绣坊 · 一针一线',66,safe+126,14,258,42,'#fff2d8');
       artPlate('scroll',24,y,342,60,true);text('绣坊 '+n.level+' 级',55,y+23,16,INK,'left',true);fitText('库房 '+n.stock.cloth+'绢 / '+n.stock.thread+'线 · 交付 '+n.delivered+'件',55,y+45,11,193,'#786a51');
       button('needle-book','绣样册',264,y+13,78,36,()=>{needlePage=0;open('needle-book');},{type:'outline',size:12});
-      const expand=n.tutorialDone&&n.level<6&&!Needle.upgradeRequirement(state)&&state.silver>=Needle.COSTS[n.level]&&!(n.run&&!n.run.finished);
-      rect(24,y+67,342,29,14,'#69434dda');fitText(expand?'绣作已达标 · 点下方扩建，学新手艺':Needle.goal(state),195,y+82,11,316,'#fff1ce','center',true);
+      const teaPending=n.teaUnlocked&&!state.shops[0].level&&!(n.run&&!n.run.finished);const expand=n.tutorialDone&&n.level<6&&!Needle.upgradeRequirement(state)&&state.silver>=Needle.COSTS[n.level]&&!(n.run&&!n.run.finished);
+      rect(24,y+67,342,29,14,'#69434dda');fitText(teaPending?'现在可开茶铺 · 绣坊保留，继续升级':expand?'绣作已达标 · 点下方扩建，学新手艺':Needle.goal(state),195,y+82,11,316,'#fff1ce','center',true);
       const active=n.run&&!n.run.finished,label=active?'接着上次的绣单':!n.tutorialDone?'绣第一方帕':(m.id==='grand'?'花朝成衣大单':'正式营业')+' · '+m.energy+'体力';
-      button('needle-open',label,24,y+104,280,43,()=>startNeedle(m.id),{type:'gold',size:17});
+      if(teaPending)button('needle-tea','开茶铺 · '+Needle.TEA_PRICE+'两',24,y+104,280,43,openTea,{type:'gold',size:17});else button('needle-open',label,24,y+104,280,43,()=>startNeedle(m.id),{type:'gold',size:17});
       button('needle-contracts','接单册',314,y+104,52,43,()=>open('needle-brief'),{paint:false});art('orders',324,y+104,32,31);text('接单册',340,y+141,10,'#fff0dc','center',true);
       button('needle-supply','进货',24,y+161,98,36,openNeedleSupply,{type:'outline',size:13});
       button('needle-upgrade',n.level>=6?'已满级':'扩建'+Needle.COSTS[n.level]+'两',135,y+161,120,36,()=>needleAction(()=>Needle.upgrade(state)),{type:'outline',size:12,disabled:n.level>=6});
       button('needle-street','逛商街',268,y+161,98,36,needleMap,{type:'outline',size:13});
-      if(!modal&&expand){const target=hits.find(b=>b.id==='needle-upgrade');if(target)circleGuide(target,Date.now(),false,'expansion');}
-      if(n.teaUnlocked){button('needle-tea',state.shops[0].level?'去茶铺经营':'筹开茶铺 · '+Needle.TEA_PRICE+'两',26,H-bottom-43,338,31,openTea,{paint:false});text(state.shops[0].level?'去茶铺，也可继续经营绣坊':'花朝大单已成 · 筹开自己的茶铺',195,H-bottom-28,11,'#f2dfbb','center');}
-      else text('绣帕 → 荷包 → 衣裳 → 茶铺',195,H-bottom-28,11,'#f2dfbb','center');
+      if(!modal&&(teaPending||expand)){const target=hits.find(b=>b.id===(teaPending?'needle-tea':'needle-upgrade'));if(target)circleGuide(target,Date.now(),false,teaPending?'open-tea':'expansion');}
+      if(teaPending){button('needle-open','继续绣坊营业',26,H-bottom-43,338,31,()=>startNeedle(m.id),{paint:false});text('先经营绣坊也可以 · 荷包、成衣照常解锁',195,H-bottom-28,11,'#f2dfbb','center');}
+      else if(n.teaUnlocked){button('needle-tea',state.shops[0].level?'去茶铺经营':'筹开茶铺 · '+Needle.TEA_PRICE+'两',26,H-bottom-43,338,31,openTea,{paint:false});text(state.shops[0].level?'去茶铺，也可继续经营绣坊':'首轮绣单已成 · 绣坊与茶铺可以一起经营',195,H-bottom-28,11,'#f2dfbb','center');}
+      else text('首轮绣帕 → 开茶铺 · 双店一起经营',195,H-bottom-28,11,'#f2dfbb','center');
     }
 
     function needleCursor(x,y,color,pin=true){
@@ -324,7 +325,7 @@
       if(welcome){lines('认绣样 → 配丝线 → 落针 → 收针 → 交付。\n第一单不计时，也不扣体力。\n跟着圈圈，亲手做一方梅花帕。',x+30,y+70,w-60,11,INK,21,3);button('needle-guide-begin','跟阿绫动手绣',x+28,y+132,w-56,33,()=>{r.guideStarted=true;persist();},{type:'gold',size:13});circleGuide(hits.find(b=>b.id==='needle-guide-begin'),now);}
       else{const copy={orders:'点圈内的梅花素帕，开始你的第一单。',color:'点圈内的粉色线轴，配好这方帕的丝线。',stitch:'点圈内针尖，也可按住依次划过。',finish:'点圈内“收针成件”，让针脚完整。',ready:'点圈内“交付绣件”，收下工钱与绣料。'};fitText(copy[phase],x+30,y+(lower?59:centered?50:40),10,w-60,FADE);if(target&&phase!=='stitch'){const g=guideEllipse(target);art('guideHand',Math.min(W-40,g.cx+g.rx-15),g.cy+8+(reduced()?0:Math.sin(now/260)*3),30,35);}}
     }
-    function needleBusinessGuide(){const m=Needle.mode(needleMode),b=sheet('从手艺初课，到自己的生意','阿绫 · 正式开张前，先把本钱算明白。',550);const parts=[['needleClothSupply','先备绢线','这一场要备'+m.cloth+'绢、'+m.thread+'线。用不完的收回库房。'],['energySnack','再花体力','本场'+m.energy+'体力，每1分钟恢复1点，上限200。'],['needleGood18','交付才入账','完成客单赚工钱；先做满5方正式绣帕，再扩建。']];parts.forEach(([frame,title,line],i)=>{const y=b.y+8+i*111;art(frame,b.x,y,76,82);text(title,b.x+94,y+15,17,INK,'left',true);lines(line,b.x+94,y+43,b.w-94,11,FADE,20,2);});button('needle-business-start','明白了 · 正式营业'+m.energy+'体力',b.x,b.bottom-41,b.w,39,()=>{state.needlework.businessGuideDone=true;persist();startNeedle(m.id);},{type:'gold',size:14});circleGuide(hits.find(b=>b.id==='needle-business-start'),Date.now(),false,'business');}
+    function needleBusinessGuide(){const m=Needle.mode(needleMode),b=sheet('从手艺初课，到自己的生意','阿绫 · 正式开张前，先把本钱算明白。',550);const parts=[['needleClothSupply','先备绢线','这一场要备'+m.cloth+'绢、'+m.thread+'线。用不完的收回库房。'],['energySnack','再花体力','本场'+m.energy+'体力，每1分钟恢复1点，上限200。'],['needleGood18','交付才入账','完成一轮5方绣帕，即可开茶铺；绣坊也能继续升级。']];parts.forEach(([frame,title,line],i)=>{const y=b.y+8+i*111;art(frame,b.x,y,76,82);text(title,b.x+94,y+15,17,INK,'left',true);lines(line,b.x+94,y+43,b.w-94,11,FADE,20,2);});button('needle-business-start','明白了 · 正式营业'+m.energy+'体力',b.x,b.bottom-41,b.w,39,()=>{state.needlework.businessGuideDone=true;persist();startNeedle(m.id);},{type:'gold',size:14});circleGuide(hits.find(b=>b.id==='needle-business-start'),Date.now(),false,'business');}
     function needleBrief(){
       const n=state.needlework,b=sheet('楚绣坊 · 接单册','正式营业耗体力与绣料，练手请到设置中的初课。',570);
       Needle.MODES.forEach((m,i)=>{const y=b.y+5+i*103,locked=n.level<m.level;art('needleOrderTag',b.x-4,y-10,80,96,locked?.4:1);art(Needle.GOODS[i===0?0:i===1?3:13].frame,b.x+7,y+3,57,60,locked?.4:1);text(m.name,b.x+84,y+16,17,INK,'left',true);text(locked?'绣坊'+m.level+'级解锁':m.energy+'体力 · 备'+m.cloth+'绢 / '+m.thread+'线',b.x+84,y+45,11,FADE);button('needle-mode-'+m.id,locked?'待解锁':'接单',b.x+b.w-69,y+13,69,39,()=>startNeedle(m.id),{type:i===0?'gold':'outline',size:13,disabled:locked});});
@@ -338,7 +339,7 @@
       list.slice(needlePage*6,needlePage*6+6).forEach((g,i)=>{const x=b.x+(i%2)*151,y=b.y+18+Math.floor(i/2)*143,owned=g.level<=n.level&&(!g.signature||Needle.grandReady(state)||n.grandDone);art(g.frame,x+18,y,108,91,owned?1:.35);text(g.name,x+71,y+110,13,INK,'center',true);text(g.signature?'花朝成衣大单':owned?g.price+'两起 · '+g.stitches+'段绣作':'绣坊'+g.level+'级解锁',x+71,y+132,10,FADE,'center');if(!owned)icon('lock',x+108,y+66,19);});
       button('needle-book-prev','上一页',b.x,b.bottom-37,94,33,()=>needlePage=Math.max(0,needlePage-1),{type:'outline',size:12,disabled:needlePage===0});text((needlePage+1)+' / '+pages,195,b.bottom-21,11,FADE,'center');button('needle-book-next','下一页',b.x+b.w-94,b.bottom-37,94,33,()=>needlePage=Math.min(pages-1,needlePage+1),{type:'outline',size:12,disabled:needlePage===pages-1});
     }
-    function needleWelcome(){const b=sheet('先靠一针一线，养活自己','阿绫 · 从绣帕，到荷包，再学做一身衣裳。',470);art('needleBasket',120,b.y+4,150,123);lines('先看客人要的绣样，再选线、落针、收针。\n第一方帕不花体力，也没有催促。\n往后进绣料、接绣单、扩绣坊，\n靠花朝成衣大单攒下开茶铺的本钱。',b.x+8,b.y+154,b.w-16,14,INK,26,4);button('needle-guide-start','绣好第一方帕',b.x,b.bottom-50,b.w,42,()=>startNeedle('simple',false,true),{type:'gold',size:17});}
+    function needleWelcome(){const b=sheet('先靠一针一线，养活自己','阿绫 · 从绣帕，到荷包，再学做一身衣裳。',470);art('needleBasket',120,b.y+4,150,123);lines('先看客人要的绣样，再选线、落针、收针。\n第一方帕不花体力，也没有催促。\n往后进绣料、接绣单、扩绣坊，\n做完一轮绣帕小单，就能筹开茶铺。',b.x+8,b.y+154,b.w-16,14,INK,26,4);button('needle-guide-start','绣好第一方帕',b.x,b.bottom-50,b.w,42,()=>startNeedle('simple',false,true),{type:'gold',size:17});}
     function needleSupply(){
       const n=state.needlework,m=Needle.mode(needleSupplyMode),q=Needle.shortage(state,m.id),b=sheet('绢线铺 · 采买绣料','绢布3两一匹 · 丝线2两一束 · 用不完的留到下场',610);
       text('手头 '+currency(state.silver)+'两 · 库房 '+n.stock.cloth+'绢 / '+n.stock.thread+'线',195,b.y+10,13,TEAL,'center',true);
@@ -354,9 +355,9 @@
       Needle.WARDROBE.forEach((id,i)=>{const g=Needle.GOODS[id],owned=n.wardrobe.includes(id),y=b.y+6+i*143;art(g.frame,b.x-4,y,90,119,owned?1:.38);outfitCircle(i,b.x+97,y+3,63,owned?1:.4);text(g.name,b.x+173,y+16,15,INK,'left',true);text(owned?'绣成了，便也是你的':id===17?'完成合格花朝大单':'正式交付同款衣裳',b.x+173,y+41,10,FADE);button('needle-wear-'+id,n.wearing===id?'正在使用':owned?'换作掌柜头像':'待解锁',b.x+98,y+86,b.w-98,34,()=>needleAction(()=>Needle.wear(state,id)),{type:n.wearing===id?'gold':'outline',size:12,disabled:!owned});});
       button('needle-wear-original','换回成长头像',b.x,b.bottom-38,b.w,34,()=>needleAction(()=>Needle.wear(state,null)),{type:'outline',size:13});
     }
-    function needleGrandStory(){const b=sheet('一袭凤羽，绣来新的门路','柳娘子 · 花朝大单已交付',570);art('needleGood17',b.x,b.y,137,226);lines('“这针法倒像魏宫旧样……你若想打听旧人，不妨在河畔开间茶铺。来往的客商，总有些消息。”',b.x+152,b.y+32,b.w-152,14,INK,25,7);text('大单酬谢 +300两，已随工钱入账',195,b.y+263,13,TEAL,'center',true);text('凤羽礼衣同款头像，已收入衣橱',195,b.y+292,11,FADE,'center');text('筹开茶铺需 '+Needle.TEA_PRICE+'两 · 现有 '+currency(state.silver)+'两',195,b.y+328,12,INK,'center');button('needle-grand-tea','筹开自己的茶铺',b.x,b.bottom-93,b.w,40,openTea,{type:'gold',size:16});button('needle-grand-home','先收好账，继续绣坊',b.x,b.bottom-38,b.w,34,needleHome,{type:'outline',size:12});}
+    function needleGrandStory(){const b=sheet('一袭凤羽，绣来新的门路','柳娘子 · 花朝大单已交付',570);art('needleGood17',b.x,b.y,137,226);lines(state.shops[0].level?'“这针法倒像魏宫旧样……你那间茶铺来往客商不少，不妨向他们打听。绣坊这边，我也会替你留心。”':'“这针法倒像魏宫旧样……你若想打听旧人，不妨在河畔开间茶铺。来往的客商，总有些消息。”',b.x+152,b.y+32,b.w-152,14,INK,25,7);text('大单酬谢 +300两，已随工钱入账',195,b.y+263,13,TEAL,'center',true);text('凤羽礼衣同款头像，已收入衣橱',195,b.y+292,11,FADE,'center');text(state.shops[0].level?'茶铺照常营业 · 绣坊继续接成衣大单':'筹开茶铺需 '+Needle.TEA_PRICE+'两 · 现有 '+currency(state.silver)+'两',195,b.y+328,12,INK,'center');button('needle-grand-tea',state.shops[0].level?'去茶铺，问问旧纹样':'筹开自己的茶铺',b.x,b.bottom-93,b.w,40,openTea,{type:'gold',size:16});button('needle-grand-home','先收好账，继续绣坊',b.x,b.bottom-38,b.w,34,needleHome,{type:'outline',size:12});}
     function needleResult(){const n=state.needlework,r=n.last||{},b=sheet(r.practice?'针线记在手里':r.tutorial&&r.served?'第一方帕，换来自己的工钱':'今日绣作，件件有回响',r.practice?'练手不扣体力，也不增加银两或进度':'楚绣坊 · 今日收好账',550);art((r.served?Needle.GOODS[r.good??0].frame:'needleBasket'),134,b.y,122,108);text('交付 '+r.served+' 件 · 精巧 '+r.perfect+' 件',195,b.y+134,16,INK,'center',true);text('入账 +'+(r.silver||0)+'两 · 声望 +'+(r.fame||0),195,b.y+168,18,TEAL,'center',true);text(r.gift?'初课谢礼40两，另赠8绢12线作为本钱':'用料成本 '+(r.cost||0)+'两 · 本场净赚 '+(r.profit||0)+'两',195,b.y+204,12,FADE,'center');text(r.gift?'正式营业每场消耗体力，并使用库房绣料':'未用绣料已退回库房，下回接着用',195,b.y+231,11,FADE,'center');fitText(Needle.goal(state),195,b.y+264,11,b.w,TEAL,'center');
-      button('needle-result-home',r.tutorial&&r.served?'正式营业 · 8体力':'回绣坊 · 进货与扩建',b.x,b.bottom-98,b.w,42,r.tutorial&&r.served?()=>startNeedle('simple'):needleHome,{type:'gold',size:16});button('needle-again',r.tutorial?'先看看绣坊':'再接一轮绣单',b.x,b.bottom-43,b.w,36,r.tutorial?needleHome:()=>startNeedle(Needle.recommend(state)),{type:'outline',size:14});}
+      button('needle-result-home',r.tutorial&&r.served?'正式营业 · 8体力':r.teaOpened&&!state.shops[0].level?'开茶铺 · '+Needle.TEA_PRICE+'两':'回绣坊 · 进货与扩建',b.x,b.bottom-98,b.w,42,r.tutorial&&r.served?()=>startNeedle('simple'):r.teaOpened&&!state.shops[0].level?openTea:needleHome,{type:'gold',size:16});button('needle-again',r.tutorial?'先看看绣坊':r.teaOpened?'先回绣坊，继续经营':'再接一轮绣单',b.x,b.bottom-43,b.w,36,r.tutorial||r.teaOpened?needleHome:()=>startNeedle(Needle.recommend(state)),{type:'outline',size:14});}
 
     function needleTrace(x,y,previous){const r=state.needlework.run;if(screen!=='needlework'||modal||r?.phase!=='stitch')return;const l=needleCraftLayout(),before=r.stitched;let changed=false;for(let k=0;k<(previous?12:1)&&r.phase==='stitch';k++){const p=Needle.nodes(r.active.good)[r.stitched],tx=l.cx+p.x*l.f,ty=l.cy+p.y*l.f,a=previous||{x,y},dx=x-a.x,dy=y-a.y,t=dx*dx+dy*dy?Math.max(0,Math.min(1,((tx-a.x)*dx+(ty-a.y)*dy)/(dx*dx+dy*dy))):0,d=Math.hypot(a.x+t*dx-tx,a.y+t*dy-ty);if(d>Needle.radius(r.active.good,l.f))break;Needle.stitch(r,r.stitched);changed=true;}if(changed){queueNeedleMotion(r,before);chime('tap');persist();draw(Date.now());}else if(!previous&&!r.tutorial){const wrong=Needle.nodes(r.active.good).findIndex((p,i)=>i>r.stitched&&Math.hypot(l.cx+p.x*l.f-x,l.cy+p.y*l.f-y)<=18);if(wrong>=0)needleAction(()=>Needle.stitch(r,wrong));}}
 
@@ -795,7 +796,7 @@
       ctx.fillStyle=gradient(y,90,'#68424e00','#704652ad');ctx.fillRect(b.x,y,b.w,90);
       text(shop.level?`${C.STAGES[C.tier(shop.level)]} · ${shop.level}级`:'尚未开张',b.x+12,y+70,15,'#fff1d1','left',true);
       if(i===0&&!shop.level&&!state.needlework.teaUnlocked){
-        art('needleBasket',139,y+107,112,103);text('先靠绣作攒本钱，再开茶肆',195,y+245,16,TEAL,'center',true);text('绣帕 → 荷包 → 成衣 → 合格花朝大单',195,y+278,10,FADE,'center');fitText(Needle.goal(state),195,y+306,12,b.w,INK,'center');button('tea-needle-first','回楚绣坊 · 接单挣钱',b.x,b.bottom-45,b.w,42,needleHome,{type:'gold',size:16});return;
+        art('needleBasket',139,y+107,112,103);text('先靠绣作攒本钱，再开茶肆',195,y+245,16,TEAL,'center',true);text('完成一轮绣帕小单 · 交付5方即可开茶铺',195,y+278,10,FADE,'center');fitText(Needle.goal(state),195,y+306,12,b.w,INK,'center');button('tea-needle-first','回楚绣坊 · 接单挣钱',b.x,b.bottom-45,b.w,42,needleHome,{type:'gold',size:16});return;
       }
       text('营业制作位',b.x,y+117,11,FADE);
       text(shop.level>=3?'双工作台 + 辅台':'工作台 + 辅台',b.x,y+142,19,TEAL,'left',true);
@@ -811,7 +812,7 @@
       button('upgrade',next,b.x,b.bottom-96,b.w,43,()=>{const r=C.upgrade(state,i);say(r.message,!r.ok);if(r.ok){chime('upgrade');persist();if(state.shopStories.pending.length)enterOpening({screen:'game',modal:'shop',shop:i});}},{type:'gold',disabled:shop.level>=9,size:15});
       const bw=(b.w-14)/2;
       button('assign','安排伙伴',b.x,b.bottom-41,bw,39,()=>open('partners'),{type:'outline'});
-      button('go-service','亲自营业',b.x+bw+14,b.bottom-41,bw,39,()=>open('service-brief'),{type:'outline'});
+      button('go-service','亲自营业',b.x+bw+14,b.bottom-41,bw,39,()=>i===0&&!state.guide.done?open('welcome'):open('service-brief'),{type:'outline'});
     }
     function inventory(x,y){C.SHOPS.forEach((d,i)=>{icon(d.id,x+i*99,y-10,18,TEAL);text(`${d.good} ${state.shops[i].stock}`,x+24+i*99,y,11,INK);});}
     function orderCard(o,x,y,w,slot,isClue,compact){

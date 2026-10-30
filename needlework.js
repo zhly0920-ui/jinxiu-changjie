@@ -37,7 +37,7 @@
  const FABRICS=[{name:'米白绢',color:'#eee3cc'},{name:'青碧绢',color:'#809d8b'},{name:'藕粉绢',color:'#c68c99'}];
  const MODES=[{id:'simple',name:'绣帕小单',energy:8,level:1,cloth:6,thread:9,total:5,duration:150},{id:'mixed',name:'荷包与雅物',energy:18,level:2,cloth:8,thread:13,total:6,duration:190},{id:'fine',name:'成衣定制',energy:28,level:4,cloth:12,thread:18,total:3,duration:240}];
  const GRAND={id:'grand',name:'花朝成衣大单',energy:28,level:5,cloth:5,thread:7,total:1,duration:300},REPAIR={id:'repair',name:'街坊来料零活',energy:2,level:1,cloth:1,thread:1,total:1,duration:150};
- const COSTS=[0,120,260,500,900,1600],TEA_PRICE=600,WARDROBE=[13,14,17];
+ const COSTS=[0,120,260,500,900,1600],TEA_PRICE=200,WARDROBE=[13,14,17];
  const count=(v,max=1e9)=>typeof v==='number'&&Number.isFinite(v)?Math.max(0,Math.min(max,Math.floor(v))):0;
  function fresh(){return{needlework:{campaign:2,level:1,rounds:0,wins:0,delivered:0,earned:0,perfect:0,teaUnlocked:false,legacyTea:false,tutorialDone:false,businessGuideDone:false,recentGoods:[],seen:false,serial:0,stock:{cloth:0,thread:0},purchased:0,netProfit:0,sales:Array(GOODS.length).fill(0),grandDone:false,wardrobe:[],wearing:null,run:null,last:null},activeTrade:'needlework'};}
  function mode(id){return id==='grand'?GRAND:id==='repair'?REPAIR:MODES.find(m=>m.id===id)||MODES[0];}
@@ -54,10 +54,11 @@
  function unlocked(level,includeSignature=false){return GOODS.filter(g=>g.level<=level&&(!g.signature||includeSignature));}
  function progress(s){const a=s.needlework.sales;return{handkerchief:GOODS.filter(g=>g.family==='绣帕').reduce((v,g)=>v+a[g.id],0),pouch:GOODS.filter(g=>g.family==='荷包').reduce((v,g)=>v+a[g.id],0),clothes:a.slice(12,17).reduce((x,y)=>x+y,0),blouse:a[13]||0};}
  function grandReady(s){const n=s.needlework,p=progress(s);return !n.grandDone&&n.level>=5&&p.clothes>=3&&p.blouse>=1;}
- function unlock(s){const n=s.needlework;n.teaUnlocked=!!n.legacyTea||n.grandDone;return n.teaUnlocked;}
+ function unlock(s){const n=s.needlework;n.teaUnlocked=!!n.legacyTea||n.grandDone||progress(s).handkerchief>=5;return n.teaUnlocked;}
  function storesAvailable(s){return !!s.shops?.[0]?.level;}
  function recommend(s){return grandReady(s)?'grand':s.needlework.level>=4?'fine':s.needlework.level>=2?'mixed':'simple';}
- function goal(s){const n=s.needlework,p=progress(s);return !n.tutorialDone?'第一张绣单：靠自己的针线挣工钱':n.teaUnlocked?(storesAvailable(s)?'茶铺已开，绣坊与商街都等你经营':n.legacyTea?'旧铺进度已保留，也可继续绣坊生意':'成衣已得街坊认可，可以筹开茶铺'):n.level===1?'正式交付绣帕 '+Math.min(5,p.handkerchief)+'/5 · 再扩绣坊':n.level<4?'荷包交付 '+Math.min(8,p.pouch)+'/8 · 逐步学做衣裳':n.level<5?'完成成衣 '+Math.min(3,p.clothes)+'/3 · 扩建成衣坊':grandReady(s)?'接下花朝成衣大单，攒开茶铺的本钱':'成衣交付 '+Math.min(3,p.clothes)+'/3 · 其中含一件桃枝绣襦';}
+ function goal(s){const n=s.needlework,p=progress(s);if(!n.tutorialDone)return'第一张绣单：靠自己的针线挣工钱';if(n.teaUnlocked&&!storesAvailable(s))return'首轮绣单已成 · 可开茶铺，绣坊继续升级';const goal=n.level===1?'正式交付绣帕 '+Math.min(5,p.handkerchief)+'/5 · 可扩建绣坊':n.level<4?'荷包交付 '+Math.min(8,p.pouch)+'/8 · 逐步学做衣裳':n.level<5?'完成成衣 '+Math.min(3,p.clothes)+'/3 · 扩建成衣坊':grandReady(s)?'承接花朝成衣大单，解锁凤羽礼衣':n.level>=6?'经营绣坊、收集绣样，照看茶铺生意':'成衣交付 '+Math.min(3,p.clothes)+'/3 · 其中含一件桃枝绣襦';return storesAvailable(s)?'双店并营 · '+goal:goal;}
+
  function upgradeRequirement(s){const n=s.needlework,p=progress(s);if(n.level===1&&p.handkerchief<5)return'先正式交付5方绣帕 · 当前'+p.handkerchief+'/5';if(n.level===2&&p.pouch<4)return'先交付4只荷包 · 当前'+p.pouch+'/4';if(n.level===3&&p.pouch<8)return'荷包手艺再稳一些 · 当前'+p.pouch+'/8';if(n.level===4&&p.clothes<3)return'先做成3件衣裳 · 当前'+p.clothes+'/3';if(n.level===5&&p.clothes<6)return'先交付6件成衣 · 当前'+p.clothes+'/6';return null;}
  function upgrade(s){const n=s.needlework;if(n.level>=6)return{ok:false,message:'绣坊已至本版最高等级'};const requirement=upgradeRequirement(s);if(requirement)return{ok:false,message:requirement};const price=COSTS[n.level];if(s.silver<price)return{ok:false,message:'还差'+(price-s.silver)+'两，可先接几笔绣单'};s.silver-=price;n.level++;return{ok:true,price,message:'绣坊升至'+n.level+'级'+(n.level===4?' · 开始成衣定制':'')};}
  function shortage(s,id){const m=mode(id),n=s.needlework,cloth=Math.max(0,m.cloth-n.stock.cloth),thread=Math.max(0,m.thread-n.stock.thread);return{cloth,thread,price:cloth*3+thread*2};}

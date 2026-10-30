@@ -4,7 +4,7 @@
   if(preview&&query.has('fresh')){localStorage.removeItem(prefix+'chuer-dangjia-v9');query.delete('fresh');history.replaceState(null,'',location.pathname+'?'+query.toString());}
   const canvas=document.getElementById('game'),shell=document.getElementById('game-shell'),controls=document.getElementById('accessible-controls');
   let audio,started=false,theme,game,controlKey='';
-  function audioStart(){if(!started){started=true;theme=new Audio('assets/theme.wav');theme.loop=true;theme.volume=.22;}if(game&&game.inspect().state.sound)theme.play().catch(()=>{});}
+  function audioStart(){if(!started){started=true;theme=new Audio('assets/theme.mp3');theme.loop=true;theme.volume=.30;}if(game&&game.inspect().state.sound)theme.play().catch(()=>{});}
   function sound(kind){
     audioStart();try{
       audio=audio||new(window.AudioContext||window.webkitAudioContext)();if(audio.state==='suspended')audio.resume();
@@ -24,7 +24,7 @@
   }
   const size=()=>{const b=shell.getBoundingClientRect();return{width:b.width,height:b.height,dpr:devicePixelRatio||1};};
   game=ChuerGame.create({canvas,...size(),
-    review:query.has('test'),preview,newCampaign:()=>{location.href=location.pathname+'?v=0.20&preview=beginning&fresh=1';},
+    review:query.has('test'),preview,newCampaign:()=>{location.href=location.pathname+'?v=0.21&preview=beginning&fresh=1';},
     read:key=>{try{return JSON.parse(localStorage.getItem(prefix+key));}catch(e){return null;}},
     write:(key,data)=>{try{localStorage.setItem(prefix+key,JSON.stringify(data));}catch(e){}},
     loadImage:src=>new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=reject;img.src=src;}),

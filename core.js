@@ -132,7 +132,7 @@
   function upgrade(s,i) {
     if(!Number.isInteger(i)||!s.shops[i])return{ok:false,message:'找不到这间铺子'};
     const shop=s.shops[i],def=SHOPS[i];
-    if(i===0&&!shop.level&&!s.needlework.teaUnlocked)return{ok:false,message:'先做到衣裳：交付合格的花朝成衣大单，再筹开茶铺'};
+    if(i===0&&!shop.level&&!s.needlework.teaUnlocked)return{ok:false,message:'先完成一轮正式绣帕小单，交付5方绣帕后即可开茶铺'};
     if(i>0&&!shop.level&&!s.shops[0].level)return{ok:false,message:'先筹开茶铺，再逐步经营其他店铺'};
     if(shop.level>=9)return{ok:false,message:'这间店已升至本版最高等级'};
     if(!shop.level&&(s.fame<(def.fame||0)))return{ok:false,message:`还需声望 ${def.fame-s.fame}，可先做街坊订单`};
