@@ -12,6 +12,7 @@
   function create(env){
     const canvas=env.canvas,ctx=canvas.getContext('2d');
     let state=C.restore(env.read(KEY)||LEGACY_KEYS.map(key=>env.read(key)).find(Boolean)),screen='title',modal=null,selectedShop=0,images={},ready=false,loadProgress=0,loadFailed=false;
+    let musicRevision=0,lastMusicKey='';
     let W=390,H=780,scale=1,safe=0,bottom=0,hits=[],focus=-1,frame=0,introAt=0,lastIntro=-1,introPausedAt=null,introPauseTotal=0,introAutoPause=false;
     let tick=Date.now(),saved=tick,hidden=false,raf=null,toast=null,effects=[],pendingOffline=C.offline(state,tick);
     let storyIndex=0,storyStep=0,confirmSku=null,returnTo=null,modalScroll=0;
@@ -71,6 +72,13 @@
       ctx.shadowColor='#ffe0a5';ctx.shadowBlur=8;ctx.strokeStyle='#a86468';ctx.lineWidth=5;ctx.beginPath();circlePath(g,pulse);ctx.stroke();ctx.shadowBlur=0;ctx.strokeStyle='#ffe7ac';ctx.lineWidth=2.5;ctx.beginPath();circlePath(g,pulse);ctx.stroke();ctx.restore();
       if(env.review)guideReview={kind,target:target.id,shape:'ellipse',...g,pulse};return g;
     }
+    function guideHand(target,now){
+      const v=target.visual||target,tip=target.guidePoint||{x:v.x+v.w/2,y:v.y+v.h/2},a=ART.frames.guideHand;
+      const h=34*(reduced()?1:1+Math.sin(now/290)*.025),w=h*a.w/a.h*images[a.sheet].width/images[a.sheet].height;
+      const x=tip.x-w*.945,y=tip.y-h*.055;art('guideHand',x,y,w,h);
+      ctx.beginPath();ctx.arc(tip.x,tip.y,2.2,0,Math.PI*2);ctx.fillStyle='#fff1b8';ctx.fill();
+      if(env.review&&guideReview)guideReview.hand={target:target.id,tip,bounds:{x,y,w,h}};
+    }
     function icon(name,x,y,s=20,color=GOLD){
       if(ART.frames[name]){art(name,x,y,s,s);return;}
       if(name==='tea'||name==='pastry'){foodSprite(name==='tea'?0:2,x+s/2,y+s/2,s);return;}
@@ -104,7 +112,7 @@
         quietLabel(label,x-3,y-8,opt.size||14,w+6,h+16,opt.type==='gold'?'#674422':'#714754');ctx.restore();
       }
       const pad=Math.max(0,(44-h)/2);
-      const box=uiBox(x,y-pad,w,h+pad*2),targetH=Math.max(44,box.h);hits.push({id,label,x:box.x,y:box.y-(targetH-box.h)/2,w:box.w,h:targetH,visual:uiBox(x,y,w,h),painted:opt.paint!==false,fn,disabled});
+      const box=uiBox(x,y-pad,w,h+pad*2),targetH=Math.max(44,box.h),f=opt.guideFocus,point=opt.guidePoint||(opt.paint!==false?{x:x+w*.82,y:y+h*.38}:null),p=point?uiBox(point.x,point.y,0,0):null;hits.push({id,label,x:box.x,y:box.y-(targetH-box.h)/2,w:box.w,h:targetH,visual:f?uiBox(f.x,f.y,f.w,f.h):uiBox(x,y,w,h),guidePoint:p?{x:p.x,y:p.y}:null,painted:opt.paint!==false,fn,disabled});
       if(focus===hits.length-1){ctx.strokeStyle='#fce3a1';ctx.lineWidth=2;ctx.strokeRect(x+3,y+2,w-6,h-4);}
     }
     function currency(n){return Math.floor(n).toLocaleString('zh-CN');}
@@ -286,7 +294,7 @@
           const g=Needle.GOODS[o.good],x=(r.orders.length===1?[195]:r.orders.length===2?[130,260]:[65,195,325])[i],y=safe+114;
           art('needleOrderTag',x-52,y-11,104,120);art(g.frame,x-34,y+4,68,58);
           text(g.name,x,y+70,11,INK,'center',true);text(g.cloth+'绢 '+g.thread+'线 · '+g.price+'两起',x,y+88,9,'#8a6b61','center');
-          button('needle-order-'+i,'承接'+g.name,x-54,y-6,108,122,()=>needleAction(()=>Needle.accept(r,i)),{paint:false,disabled:r.phase!=='orders'});
+          button('needle-order-'+i,'承接'+g.name,x-54,y-6,108,122,()=>needleAction(()=>Needle.accept(r,i)),{paint:false,disabled:r.phase!=='orders',guidePoint:{x,y:y+33}});
           if(!r.tutorial)button('needle-decline-'+i,'换单',x-30,y+126,60,28,()=>needleAction(()=>Needle.decline(r,i)),{type:'outline',size:9,disabled:r.declines<=0});
         });
       }else{
@@ -310,7 +318,7 @@
         Needle.placementNames(r.active.good).forEach((name,i)=>button('needle-place-'+i,'绣在'+name,34+i*112,l.palette+18,98,40,()=>needleAction(()=>Needle.place(r,i)),{type:'outline',size:14}));
       }else if(r.phase==='color'){
         art('needleThreads',51,l.palette-4,288,95);
-        Needle.THREADS.forEach((c,i)=>{const x=156+i*41;button('needle-thread-'+i,'选'+c.name+'线',x-22,l.palette-3,44,88,()=>needleAction(()=>Needle.thread(r,i)),{paint:false});text(c.name,x,l.palette+96,11,'#fff1d4','center',true);});
+        Needle.THREADS.forEach((c,i)=>{const x=156+i*41;button('needle-thread-'+i,'选'+c.name+'线',x-22,l.palette-3,44,88,()=>needleAction(()=>Needle.thread(r,i)),{paint:false,guidePoint:{x,y:l.palette+40}});text(c.name,x,l.palette+96,11,'#fff1d4','center',true);});
       }else if(r.phase==='finish')button('needle-finish','收针成件',66,l.palette+15,258,43,()=>needleAction(()=>Needle.finish(r)),{type:'gold',size:17});
       else if(r.phase==='ready')button('needle-deliver','交付绣件 · 收取工钱',48,l.palette+15,294,43,()=>needleAction(()=>Needle.deliver(r)),{type:'gold',size:17});
       else if(!(r.tutorial&&r.phase==='stitch')){art('needleBasket',139,l.palette-8,112,84,.85);text(r.phase==='stitch'?'绣样进度 '+r.stitched+' / '+Needle.GOODS[r.active.good].stitches:'本轮可换单 '+r.declines+' 次',195,l.palette+88,11,'#fff1d4','center');}
@@ -321,11 +329,11 @@
       ctx.save();if(welcome){ctx.fillStyle='#633c465e';ctx.fillRect(0,0,W,H);}ctx.restore();if(!welcome&&target)circleGuide(target,now,true);hits=all.filter(b=>b.id==='needle-pause'||!welcome&&b.id===id);
       const lower=!welcome&&phase==='stitch',centered=!welcome&&phase==='orders',x=welcome?44:39,y=welcome?l.cy-94:lower?l.palette-1:centered?l.cy-33:safe+188,w=welcome?302:312,h=welcome?192:lower?86:centered?74:57;artPlate('scroll',x,y,w,h,true);
       const titles={orders:'先认绣单，再接客',color:'照客意，配藕粉丝线',stitch:'跟着针尖，把花样绣出来',finish:'花样已成，最后收好线脚',ready:'交给客人，收下第一笔工钱'};
-      text(welcome?'阿绫带你做第一笔生意':titles[phase],x+30,y+(welcome?42:lower?31:centered?27:20),welcome?15:12,INK,'left',true);
-      if(welcome){lines('认绣样 → 配丝线 → 落针 → 收针 → 交付。\n第一单不计时，也不扣体力。\n跟着圈圈，亲手做一方梅花帕。',x+30,y+70,w-60,11,INK,21,3);button('needle-guide-begin','跟阿绫动手绣',x+28,y+132,w-56,33,()=>{r.guideStarted=true;persist();},{type:'gold',size:13});circleGuide(hits.find(b=>b.id==='needle-guide-begin'),now);}
-      else{const copy={orders:'点圈内的梅花素帕，开始你的第一单。',color:'点圈内的粉色线轴，配好这方帕的丝线。',stitch:'点圈内针尖，也可按住依次划过。',finish:'点圈内“收针成件”，让针脚完整。',ready:'点圈内“交付绣件”，收下工钱与绣料。'};fitText(copy[phase],x+30,y+(lower?59:centered?50:40),10,w-60,FADE);if(target&&phase!=='stitch'){const g=guideEllipse(target);art('guideHand',Math.min(W-40,g.cx+g.rx-15),g.cy+8+(reduced()?0:Math.sin(now/260)*3),30,35);}}
+      text(welcome?'阿绫带你做第一笔生意':titles[phase],x+38,y+(welcome?42:lower?31:centered?27:20),welcome?15:12,INK,'left',true);
+      if(welcome){lines('认绣样 → 配丝线 → 落针 → 收针 → 交付。\n第一单不计时，也不扣体力。\n跟着圈圈，亲手做一方梅花帕。',x+38,y+70,w-76,11,INK,21,3);button('needle-guide-begin','跟阿绫动手绣',x+28,y+132,w-56,33,()=>{r.guideStarted=true;persist();},{type:'gold',size:13});circleGuide(hits.find(b=>b.id==='needle-guide-begin'),now);}
+      else{const copy={orders:'点圈内的梅花素帕，开始你的第一单。',color:'点圈内的粉色线轴，配好这方帕的丝线。',stitch:'点圈内针尖，也可按住依次划过。',finish:'点圈内“收针成件”，让针脚完整。',ready:'点圈内“交付绣件”，收下工钱与绣料。'};fitText(copy[phase],x+38,y+(lower?59:centered?50:40),10,w-76,FADE);if(target&&phase!=='stitch'){guideHand(target,now);}}
     }
-    function needleBusinessGuide(){const m=Needle.mode(needleMode),b=sheet('从手艺初课，到自己的生意','阿绫 · 正式开张前，先把本钱算明白。',550);const parts=[['needleClothSupply','先备绢线','这一场要备'+m.cloth+'绢、'+m.thread+'线。用不完的收回库房。'],['energySnack','再花体力','本场'+m.energy+'体力，每1分钟恢复1点，上限200。'],['needleGood18','交付才入账','完成一轮5方绣帕，即可开茶铺；绣坊也能继续升级。']];parts.forEach(([frame,title,line],i)=>{const y=b.y+8+i*111;art(frame,b.x,y,76,82);text(title,b.x+94,y+15,17,INK,'left',true);lines(line,b.x+94,y+43,b.w-94,11,FADE,20,2);});button('needle-business-start','明白了 · 正式营业'+m.energy+'体力',b.x,b.bottom-41,b.w,39,()=>{state.needlework.businessGuideDone=true;persist();startNeedle(m.id);},{type:'gold',size:14});circleGuide(hits.find(b=>b.id==='needle-business-start'),Date.now(),false,'business');}
+    function needleBusinessGuide(){const m=Needle.mode(needleMode),b=sheet('从手艺初课，到自己的生意','阿绫 · 正式开张前，先把本钱算明白。',550);const parts=[['needleClothSupply','先备绢线','本场备'+m.cloth+'绢、'+m.thread+'线。\n余料留在库房，下次接着用。'],['energySnack','再花体力','本场耗'+m.energy+'体力。\n每分钟恢复1点，上限200点。'],['needleGood18','交付才入账','首轮交付5方绣帕，可开茶铺。\n绣坊仍可继续升级。']];parts.forEach(([frame,title,line],i)=>{const y=b.y+8+i*111;art(frame,b.x,y,76,82);text(title,b.x+94,y+15,17,INK,'left',true);lines(line,b.x+94,y+43,b.w-94,11,FADE,20,2);});button('needle-business-start','明白了 · 正式营业'+m.energy+'体力',b.x,b.bottom-41,b.w,39,()=>{state.needlework.businessGuideDone=true;persist();startNeedle(m.id);},{type:'gold',size:14});circleGuide(hits.find(b=>b.id==='needle-business-start'),Date.now(),false,'business');}
     function needleBrief(){
       const n=state.needlework,b=sheet('楚绣坊 · 接单册','正式营业耗体力与绣料，练手请到设置中的初课。',570);
       Needle.MODES.forEach((m,i)=>{const y=b.y+5+i*103,locked=n.level<m.level;art('needleOrderTag',b.x-4,y-10,80,96,locked?.4:1);art(Needle.GOODS[i===0?0:i===1?3:13].frame,b.x+7,y+3,57,60,locked?.4:1);text(m.name,b.x+84,y+16,17,INK,'left',true);text(locked?'绣坊'+m.level+'级解锁':m.energy+'体力 · 备'+m.cloth+'绢 / '+m.thread+'线',b.x+84,y+45,11,FADE);button('needle-mode-'+m.id,locked?'待解锁':'接单',b.x+b.w-69,y+13,69,39,()=>startNeedle(m.id),{type:i===0?'gold':'outline',size:13,disabled:locked});});
@@ -391,7 +399,7 @@
         rect(x-41,py,82,4,2,'#fff8e9aa');rect(x-41,py,82*Math.max(0,g.patience/g.maxPatience),4,2,urgent?'#c46c52':'#74957c');
         button('guest-'+i,'给'+g.name+'送餐',x-54,yy-4,108,l.tableY-yy+50,()=>{
           const r=S.serve(s,i);if(r.ok){serviceFX=[{message:r.qualityBonus?`好手艺！+${r.earned}两`:r.complete?`好评 +${r.earned}两`:`上货 +${r.earned}两`,x,y:l.tableY-150,start:now}];chime(r.complete?'coin':'tap');}else say(r.message);
-        },{paint:false});
+        },{paint:false,guideFocus:{x:x-36,y:l.tableY-84,w:72,h:90},guidePoint:{x,y:l.tableY-40}});
       });
       // The tray sits between the tables and the worktop, so it never covers customers.
       const trayY=l.trayY;
@@ -424,13 +432,13 @@
           if(finishing){s.focusStation=i;chime('tap');}
           else if(steeping){const r=S.brew(s,i);if(r.ok){serviceFX.push({message:r.label+(r.bonus?` +${r.bonus}两`:''),x,y:y-28,start:Date.now()});chime(r.quality==='perfect'?'brew-perfect':r.quality==='good'?'brew-good':'tap');}else say(r.message);}
           else{const food=st.food,r=S.pickup(s,i);if(!r.ok)say(r.message);else{serviceFX.push({food,x,y:y+16,endX:165+(s.tray.length-1)*60,endY:trayY+12,start:Date.now(),flight:true});chime('tap');}}
-        },{paint:false,disabled:st.locked});
+        },{paint:false,disabled:st.locked,guideFocus:{x:x-46,y:y-40,w:92,h:108},guidePoint:{x,y:y+9}});
       });
       const ry=l.recipeY;
       ctx.fillStyle=gradient(ry-8,H-ry,'#36231800','#281c19de');ctx.fillRect(0,ry-8,W,H-ry+bottom);
       s.menu.map(id=>S.RECIPES[id]).forEach((r,i)=>{const x=[68,195,322][i];
         art('recipeMat',x-50,ry+7,100,57);foodSprite(r.id,x,ry+29,65);if(s.recipeMastery[r.id].level)art('star',x+22,ry+2,17,17);text(r.name,x,ry+79,13,'#fff0cd','center',true);if(!s.tutorial)text(`${s.recipeMastery[r.id].title} · ${(r.seconds*s.recipeMastery[r.id].speed).toFixed(1)}秒 · ${r.price+s.recipeMastery[r.id].priceAdd}两`,x,ry+98,9,'#e6c99d','center');
-        button('cook-'+r.id,'制作'+r.name,x-54,ry-8,108,s.tutorial?100:115,()=>{const result=S.cook(s,r.id);if(!result.ok)say(result.message);else chime('tap');},{paint:false});
+        button('cook-'+r.id,'制作'+r.name,x-54,ry-8,108,s.tutorial?100:115,()=>{const result=S.cook(s,r.id);if(!result.ok)say(result.message);else chime('tap');},{paint:false,guideFocus:{x:x-45,y:ry+2,w:90,h:65},guidePoint:{x,y:ry+29}});
       });
       drawCraftChoices(s,l,now);if(s.rain){artPlate('scroll',125,safe+124,252,127,true);text(Events.PEOPLE[s.rain.npc].name,142,safe+146,14,TEAL,'left',true);lines(s.rain.hint,142,safe+174,220,12,INK,21,3);}
       let hint=s.shop===0?'先点茶点制作，做好后取餐，再点客人送上':'制作后点击工作台，完成配香或压花再取货';
@@ -469,7 +477,7 @@
     function skipOpening(){const back=Story.finish(state);leaveOpening(back);}
     function drawOpeningStory(now){const e=Story.current(state);if(!e){leaveOpening({screen:'game'});return;}if(e.scene)cover(images[e.scene],0,0,W,H);else{const ww=570,hh=H*ww/W,p=Street.center(e.region),center={x:Math.max(ww/2,Math.min(Street.WIDTH-ww/2,p.x)),y:Math.max(hh/2,Math.min(Street.HEIGHT-hh/2,p.y))};paintStreetWindow(center,0,0,W,H,ww);}ctx.fillStyle=gradient(0,145+safe,'#69404ad1','#69404a00');ctx.fillRect(0,0,W,145+safe);ctx.fillStyle=gradient(H-320,320,'#4d2d3900','#50303ba6');ctx.fillRect(0,H-320,W,320);
       ctx.save();ctx.shadowColor='#4d2939';ctx.shadowBlur=5;ctx.shadowOffsetY=1;text(e.chapter,23,safe+31,11,'#fff2df');fitText(e.title,23,safe+79,26,342,'#fff0d0','left',true);ctx.restore();button('opening-skip','略过本段',307,safe+13,65,36,skipOpening,{paint:false});text('略过',339,safe+31,11,'#fff0db','center');
-      const y=H-bottom-246;artPlate('scroll',16,y,358,226,true);text(e.beat[0],43,y+43,17,TEAL,'left',true);lines(e.beat[1],43,y+77,304,15,INK,25,3);fitText('下一步 · '+e.goal,43,y+155,10,304,FADE);text((e.index+1)+' / '+e.beats.length,45,y+196,11,FADE);button('opening-next',e.last?(e.id==='needle'?'接下第一张绣单':e.replay?'收好这页':'开门做生意'):'听下去',191,y+180,153,37,nextOpening,{type:'gold',size:13});
+      const y=H-bottom-246;artPlate('scroll',16,y,358,226,true);text(e.beat[0],60,y+43,17,TEAL,'left',true);lines(e.beat[1],60,y+77,270,15,INK,25,3);fitText('下一步 · '+e.goal,60,y+155,10,270,FADE);text((e.index+1)+' / '+e.beats.length,60,y+196,11,FADE);button('opening-next',e.last?(e.id==='needle'?'接下第一张绣单':e.replay?'收好这页':'开门做生意'):'听下去',191,y+180,153,37,nextOpening,{type:'gold',size:13});
     }
     function openingJournal(){const b=sheet('开铺纪事','每开一扇门，让故事向前一步。',610),list=Story.ENTRIES,pages=Math.ceil(list.length/4);list.slice(journalPage*4,journalPage*4+4).forEach((e,i)=>{const y=b.y+9+i*111,seen=state.shopStories.seen.includes(e.id);if(e.scene&&images[e.scene])cover(images[e.scene],b.x,y,69,88,1);else paintStreetWindow(Street.center(e.region),b.x,y,69,88);text(e.title,b.x+82,y+17,14,INK,'left',true);fitText(seen?e.chapter:e.id.startsWith('region-')?'通商此地后展开':'这间新店开张后展开',b.x+82,y+43,10,b.w-82,FADE);button('opening-read-'+e.id,seen?'重读这一页':'待展开',b.x+82,y+64,b.w-82,31,()=>{if(Story.replay(state,e.id,{screen:'opening-journal'})){screen='opening-story';close();persist();}},{type:'outline',size:11,disabled:!seen});});button('opening-journal-prev','上一页',b.x,b.bottom-35,90,32,()=>journalPage=Math.max(0,journalPage-1),{type:'outline',size:12,disabled:!journalPage});text((journalPage+1)+' / '+pages,195,b.bottom-19,11,FADE,'center');button('opening-journal-next','下一页',b.x+b.w-90,b.bottom-35,90,32,()=>journalPage=Math.min(pages-1,journalPage+1),{type:'outline',size:12,disabled:journalPage>=pages-1});}
     function enterGame(){
@@ -486,13 +494,15 @@
     function skipGuide(){if(!service?.tutorial){state.guide.done=true;close();persist();return;}if(!service.guideReplay){state.guide.lessons[service.shop]=true;if(service.guideFirst)state.guide.done=true;}state.activeSession=null;service=null;guideFlow=null;screen='game';modal=null;persist();say('已收起指引，手册中可随时免费重练');}
     function guideAfter(id){if(!service?.tutorial||!guideFlow)return;Guide.action(guideFlow,service,id,true);service.guideStep=guideFlow.step;persist();}
     function guideOverlay(now){
-      if(!service?.tutorial||!guideFlow||modal)return;const s=service,t=Guide.target(guideFlow,s),base=hits.slice();hits=hits.filter(h=>Guide.allowed(guideFlow,s,h.id));
-      const target=base.find(h=>t.ids?.includes(h.id)&&!h.disabled&&h.id!=='guide-next'),holes=t.ids?target?[target]:[]:[];
+      if(!service?.tutorial||!guideFlow||modal)return;const s=service,t=Guide.target(guideFlow,s);hits=hits.filter(h=>Guide.allowed(guideFlow,s,h.id));
+      const focused=s.focusStation===null?null:s.stations[s.focusStation],preferred=focused?.food!==undefined&&focused?.food!==null?'finish-choice-'+S.RECIPES[focused.food].finish:null;
+      const actionable=h=>{const m=/^pickup-(\d+)$/.exec(h.id);return !h.disabled&&(!m||s.stations[+m[1]].phase==='ready');};
+      const target=hits.find(h=>h.id===preferred&&actionable(h))||hits.find(h=>t.ids?.includes(h.id)&&h.id!=='guide-next'&&actionable(h));
       if(t.ids&&target)circleGuide(target,now,true,'shop-lesson');
-      const x=125,y=safe+132,w=251;artPlate('scroll',x-5,y-7,w+8,128,true);staffPortrait(C.PARTNERS[0],x+8,y+9,31);text(t.title,x+47,y+24,10,TEAL,'left',true);lines(t.line,x+24,y+58,w-48,12,INK,20,2);
+      const x=125,y=safe+132,w=251;artPlate('scroll',x-5,y-7,w+8,128,true);staffPortrait(C.PARTNERS[0],x+8,y+9,31);text(t.title,x+47,y+24,10,TEAL,'left',true);lines(t.line,x+36,y+58,w-72,12,INK,20,2);
       if(guideFlow.step===0)button('guide-next','看懂了，动手试试',x+31,y+94,w-62,28,()=>{Guide.action(guideFlow,s,'guide-next');s.guideStep=guideFlow.step;persist();},{type:'gold',size:11});
       if(guideFlow.step===0)circleGuide(hits.find(b=>b.id==='guide-next'),now,false,'shop-lesson');
-      if(target){const g=guideEllipse(target),handX=Math.min(W-35,g.cx+g.rx-19),handY=Math.max(safe+54,g.cy+6+(reduced()?0:Math.sin(now/250)*3));art('guideHand',handX,handY,34,36);}
+      if(target)guideHand(target,now);
       button('guide-skip','跳过本次教学',246,H-bottom-39,129,30,skipGuide,{type:'outline',size:10});text(s.practice?'免费重练 · 不计收益':'免费初课 · 不耗体力',24,H-bottom-23,10,'#fff0ce');
     }
     function goServiceHome(){screen='game';close();guideFlow=null;if(state.guide.upgradePending)open('guide-upgrade');else if(state.rain.pending)say('檐下有位避雨的客人，点青伞可招待');}
@@ -509,14 +519,14 @@
       for(const[n,id,label,mark,delta]of [[0,'street-zoom-out','看远','−',-.1],[1,'street-zoom-in','拉近','+',.1]]){const x=266+n*43;ctx.beginPath();ctx.arc(x,y+17,16,0,Math.PI*2);ctx.fillStyle='#f5ead5e8';ctx.fill();ctx.strokeStyle='#c3a368';ctx.lineWidth=1.2;ctx.stroke();text(mark,x,y+16,23,TEAL,'center');text(label,x,y+47,9,'#f7e5bd','center');button(id,label,x-20,y-2,40,56,()=>Street.zoom(streetCamera,streetViewport(),streetCamera.zoom+delta),{paint:false});}const mx=342,my=y-2,mw=34,mh=51;ctx.drawImage(images.streetPreview,mx,my,mw,mh);ctx.strokeStyle='#c8ae72';ctx.lineWidth=1;ctx.strokeRect(mx,my,mw,mh);const v=streetViewport();ctx.strokeStyle='#fff5c8';ctx.strokeRect(mx+streetCamera.x/Street.WIDTH*mw,my+streetCamera.y/Street.HEIGHT*mh,v.w/(streetCamera.zoom*Street.WIDTH)*mw,v.h/(streetCamera.zoom*Street.HEIGHT)*mh);button('street-overview','查看全街与开拓条件',mx-4,my-4,mw+8,mh+8,()=>open('map'),{paint:false});
       if(Needle.storesAvailable(state)&&state.rain.pending&&!reduced()){ctx.beginPath();ctx.fillStyle='#f3ce86';ctx.arc(143,y+5,3+Math.sin(now/400),0,Math.PI*2);ctx.fill();}
     }
-    function lanternProgress(y,small=false){const n=state.festival.wins;for(let i=0;i<12;i++){const col=i%6,row=Math.floor(i/6),x=small?65+col*51:54+col*56,yy=y+row*(small?43:57),lit=i<n;if(lit&&!reduced()){const g=ctx.createRadialGradient(x,yy+16,1,x,yy+16,24);g.addColorStop(0,'#ffd47b66');g.addColorStop(1,'#ffd47b00');ctx.fillStyle=g;ctx.fillRect(x-24,yy-8,48,48);}art('festivalEntry',x-15,yy-2,30,37,lit?1:.24);if(!small)text(i+1,x,yy+43,9,lit?'#ffe6a4':'#b1b7b2','center');}}
+    function lanternProgress(y,small=false){const n=state.festival.wins;for(let i=0;i<12;i++){const col=i%6,row=Math.floor(i/6),x=small?65+col*51:54+col*56,yy=y+row*(small?43:57),lit=i<n;if(lit&&!reduced()){const g=ctx.createRadialGradient(x,yy+16,1,x,yy+16,24);g.addColorStop(0,'#ffd47b66');g.addColorStop(1,'#ffd47b00');ctx.fillStyle=g;ctx.fillRect(x-24,yy-8,48,48);}art('festivalEntry',x-15,yy-2,30,37,lit?1:.52);if(!small){ctx.beginPath();ctx.arc(x,yy+44,9,0,Math.PI*2);ctx.fillStyle=lit?'#c29555':'#704c47ee';ctx.fill();ctx.strokeStyle='#dbb77b';ctx.lineWidth=.7;ctx.stroke();text(i+1,x,yy+44,9,'#fff0d0','center',true);}}}
     function festivalScreen(now){
       const a=Events.status(state),f=state.festival,p=Events.CHAPTERS[a.chapter];cover(images.festivalScene,0,0,W,H);ctx.fillStyle=gradient(0,190,'#674552d9','#67455200');ctx.fillRect(0,0,W,190);ctx.fillStyle=gradient(H-350,350,'#6b435100','#6b4351df');ctx.fillRect(0,H-350,W,350);
       text('灯市百盏宴',22,safe+34,31,'#ffe8ba','left',true);text(!a.joined?'接下宴帖后，开启属于你的七日灯市':a.complete?'十二盏灯已亮，长街记得你的手艺':a.ended?'本轮宴席已散 · 兑奖仍保留':`余 ${Math.floor(Math.ceil(a.remaining/3600000)/24)}天 ${Math.ceil(a.remaining/3600000)%24}时 · 已点亮 ${f.wins}/12盏`,24,safe+65,11,'#e9d5b1');button('festival-home','回商街',309,safe+16,65,38,()=>{screen='game';close();},{type:'outline',size:11});
       lanternProgress(safe+87);
-      const by=H-bottom-338;artPlate('ribbon',46,by-21,298,41);quietLabel(p.name,46,by-21,17,298,41,'#fff0ce');text(p.line,195,by+32,11,'#ffe3b1','center');
-      if(!a.unlocked){art('festivalLamp',153,by+51,84,122);text(`完成3场营业后递来宴帖 · ${state.serviceRounds}/3`,195,by+201,12,'#fff0cc','center');button('festival-return','先去练好手艺',56,by+240,278,43,()=>{screen='game';open('service-brief');},{type:'gold',size:16});return;}
-      if(!a.joined){art('festivalToken',83,by+61,65,73);art('festivalLamp',213,by+42,83,110);lines('临水会首递来宴帖：\n“掌柜，愿与街坊共点这一街灯火么？”',65,by+160,266,13,'#fff0d0',23,2);button('festival-join','接下宴帖 · 开启七日灯市',42,by+233,306,45,()=>{const r=Events.join(state);say(r.message);if(r.ok){persist();open('festival-how');}},{type:'gold',size:16});return;}
+      const by=H-bottom-338;artPlate('ribbon',46,by-21,298,41);quietLabel(p.name,46,by-21,17,298,41,'#fff0ce');artPlate('scroll',42,by+25,306,42,true);fitText(p.line,195,by+46,12,248,INK,'center',true);
+      if(!a.unlocked){art('festivalLamp',153,by+76,80,108);text(`完成3场营业后递来宴帖 · ${state.serviceRounds}/3`,195,by+201,12,'#fff0cc','center');button('festival-return','先去练好手艺',56,by+240,278,43,()=>{screen='game';open('service-brief');},{type:'gold',size:16});return;}
+      if(!a.joined){art('festivalToken',83,by+80,65,73);art('festivalLamp',213,by+73,73,88);lines('临水会首递来宴帖：\n“掌柜，愿与街坊共点这一街灯火么？”',65,by+160,266,13,'#fff0d0',23,2);button('festival-join','接下宴帖 · 开启七日灯市',42,by+233,306,45,()=>{const r=Events.join(state);say(r.message);if(r.ok){persist();open('festival-how');}},{type:'gold',size:16});return;}
       if(a.ended||a.complete){art('festivalLamp',144,by+49,102,139);text(a.complete?'永久金桂灯，等你带回店里。':'已得的灯花签与谢礼都在这里。',195,by+209,12,'#ffe6b5','center');button('festival-rewards','打开灯市谢礼',57,by+242,276,43,()=>open('festival-rewards'),{type:'gold',size:17});return;}
       C.SHOPS.forEach((d,i)=>button('festival-shop-'+i,d.short,38+i*108,by+55,98,29,()=>{selectedShop=i;},{type:selectedShop===i?'gold':'outline',disabled:!state.shops[i].level,size:11}));if(!state.shops[selectedShop].level)selectedShop=0;
       for(let i=0;i<2;i++){const x=29+i*176,bold=i===1;artPlate('scroll',x,by+103,158,115,true);text(bold?'接一席讲究的':'稳稳招待',x+79,by+123,15,INK,'center',true);const pl=Events.plan(state,bold,selectedShop);text(`接待${pl.profile?.goal||p.goal}位`+(pl.profile?.perfect?` · 上佳${pl.profile.perfect}份`:bold?' · 离客≤1':''),x+79,by+150,10,TEAL,'center');text(pl.tutorial?'初次赴宴免费':`${bold?30:20}体力 · 灯花签${bold?12:8}起`,x+79,by+176,10,'#8d774f','center');button('festival-'+(bold?'bold':'steady'),bold?'挑战这一席':'接下这一席',x+9,by+216,140,37,()=>startFestival(bold),{type:bold?'gold':'outline',size:13});}
@@ -606,7 +616,7 @@
       const i=s.focusStation,st=i===null?null:s.stations[i];if(!st||st.phase!=='finishing'){s.focusStation=null;return;}
       const y=l.trayY,mode=S.MODES[s.shop],recipe=S.RECIPES[st.food],choices=recipe.choices||mode.choices;
       art('ingredientMat',48,y-54,294,123);artPlate('ribbon',88,y-66,214,31);quietLabel('配方需：'+choices[recipe.finish],88,y-66,11,214,31,'#fff0cc');
-      choices.forEach((label,n)=>{const x=112+n*83;art(recipe.choiceFrames?recipe.choiceFrames[n]:s.shop===1?'ingredient'+n:'stamp'+n,x-24,y-26,48,49);text(label,x,y+39,11,'#fff1cc','center',true);button('finish-choice-'+n,label,x-35,y-32,70,83,()=>{const r=S.finishCraft(s,i,n);if(r.ok){serviceFX.push({message:r.label,x:195,y:y-75,start:Date.now()});chime(r.quality==='perfect'?'brew-perfect':'tap');}else say(r.message);},{paint:false});});
+      choices.forEach((label,n)=>{const x=112+n*83;art(recipe.choiceFrames?recipe.choiceFrames[n]:s.shop===1?'ingredient'+n:'stamp'+n,x-24,y-26,48,49);text(label,x,y+39,11,'#fff1cc','center',true);button('finish-choice-'+n,label,x-35,y-32,70,83,()=>{const r=S.finishCraft(s,i,n);if(r.ok){serviceFX.push({message:r.label,x:195,y:y-75,start:Date.now()});chime(r.quality==='perfect'?'brew-perfect':'tap');}else say(r.message);},{paint:false,guideFocus:{x:x-29,y:y-30,w:58,h:75},guidePoint:{x,y:y-2}});});
       closeControl('finish-cancel','稍后再做',351,y-29,()=>{s.focusStation=null;});
     }
     function brandTitle(time){
@@ -624,7 +634,7 @@
       if(env.newCampaign&&state.needlework.legacyTea&&!env.preview){button('title-new-campaign','从刺绣开篇 · 独立体验',78,y+104,234,35,env.newCampaign,{type:'outline',size:12});}
       text(env.preview?'独立体验档 · 正式进度保留':'古风经营体验版 · 本地自动存档',W/2,H-bottom-34,10,'#d1c6a6','center');
     }
-    function beginIntro(back){returnTo=back;screen='intro';modal=null;introAt=Date.now();introPausedAt=null;introPauseTotal=0;introAutoPause=false;lastIntro=-1;}
+    function beginIntro(back){musicRevision++;returnTo=back;screen='intro';modal=null;introAt=Date.now();introPausedAt=null;introPauseTotal=0;introAutoPause=false;lastIntro=-1;}
     function introElapsed(now){return Math.max(0,((introPausedAt===null?now:introPausedAt)-introAt-introPauseTotal)/1000);}
     function jumpIntro(index){if(index>=INTRO.length){finishIntro();return;}introAt=Date.now()-Opening.startAt(Math.max(0,index))*1000;introPausedAt=null;introPauseTotal=0;lastIntro=-1;}
     function toggleIntro(){if(introPausedAt===null)introPausedAt=Date.now();else{introPauseTotal+=Date.now()-introPausedAt;introPausedAt=null;}}
@@ -640,7 +650,7 @@
     function drawIntro(now){
       const current=Opening.at(introElapsed(now));if(!current){finishIntro();return;}
       const {index,t,progress,shot,elapsed}=current;
-      if(index!==lastIntro){lastIntro=index;chime(index===1?'dark':'story');}
+      if(index!==lastIntro)lastIntro=index;
       ctx.fillStyle='#0b1c21';ctx.fillRect(0,0,W,H);
       const blend=reduced()?1:Math.min(1,t/.7);if(index>0&&blend<1)openingFrame(INTRO[index-1],1);openingFrame(shot,progress,index===0?1:blend);
       ctx.fillStyle=gradient(0,H,'#07171b0a','#4b2e3be3');ctx.fillRect(0,0,W,H);ctx.fillStyle=gradient(0,95+safe,'#67445180','#67445100');ctx.fillRect(0,0,W,95+safe);
@@ -707,16 +717,16 @@
         C.SHOPS.forEach((def,i)=>{
           if(!Needle.storesAvailable(state)&&!(i===0&&state.needlework.teaUnlocked))return;
           const anchor=Street.project(streetCamera,v,Street.shop(region,i));
-          if(anchor.x<15||anchor.x>W-15||anchor.y<v.y+50||anchor.y>v.y+v.h-35)return;
+          if(anchor.x<15||anchor.x>W-15||anchor.y<v.y+50||anchor.y>v.y+v.h-64)return;
           const x=Math.max(56,Math.min(W-56,anchor.x)),y=anchor.y,owned=state.shops[i].level>0;
-          ctx.strokeStyle='#916e46';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x,y+23);ctx.lineTo(anchor.x,anchor.y+34);ctx.stroke();ctx.beginPath();ctx.arc(anchor.x,anchor.y+35,3,0,Math.PI*2);ctx.fillStyle=GOLD;ctx.fill();
-          artPlate(owned?'secondary':'ribbon',x-53,y-19,106,37);text(Street.name(region,i),x,y-1,13,owned?INK:'#f8e7c0','center',true);ctx.save();ctx.shadowColor='#fff5d1';ctx.shadowBlur=4;text(owned?'营业中 · '+state.shops[i].level+'级':'尚未开张',x,y+22,9,owned?'#284c35':'#685b48','center',true);ctx.restore();
-          const id=region===state.district?'shop-'+i:'street-shop-'+region+'-'+i;button(id,d.name+' · '+Street.name(region,i),x-55,y-23,110,61,()=>streetShop(region,i),{paint:false});
+          ctx.strokeStyle='#916e46';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x,y+48);ctx.lineTo(anchor.x,anchor.y+59);ctx.stroke();ctx.beginPath();ctx.arc(anchor.x,anchor.y+60,3,0,Math.PI*2);ctx.fillStyle=GOLD;ctx.fill();
+          artPlate(owned?'secondary':'ribbon',x-53,y-19,106,37);text(Street.name(region,i),x,y-1,13,owned?INK:'#f8e7c0','center',true);rect(x-50,y+22,100,23,9,'#fff4e8f5','#c8a98e');fitText(owned?'营业中 · '+state.shops[i].level+'级':'尚未开张',x,y+34,10,82,INK,'center',true);
+          const id=region===state.district?'shop-'+i:'street-shop-'+region+'-'+i;button(id,d.name+' · '+Street.name(region,i),x-55,y-23,110,74,()=>streetShop(region,i),{paint:false});
         });
       });
       const np=Street.project(streetCamera,v,Needle.POSITION);
-      if(np.x>27&&np.x<W-27&&np.y>v.y+42&&np.y<v.y+v.h-38){
-        const nx=Math.max(61,Math.min(W-61,np.x)),ny=np.y;artPlate('secondary',nx-57,ny-23,114,42);art('needleHoop',nx-48,ny-18,25,28);text(Needle.NAME,nx+12,ny-2,12,INK,'center',true);ctx.save();ctx.shadowColor='#fff4cb';ctx.shadowBlur=5;text('绣坊 '+state.needlework.level+'级 · 接单绣作',nx,ny+24,9,TEAL,'center',true);ctx.restore();button('needle-shop','楚绣坊 · 接单绣作',nx-59,ny-27,118,66,needleHome,{paint:false});
+      if(np.x>27&&np.x<W-27&&np.y>v.y+42&&np.y<v.y+v.h-64){
+        const nx=Math.max(61,Math.min(W-61,np.x)),ny=np.y;artPlate('secondary',nx-57,ny-23,114,42);art('needleHoop',nx-48,ny-18,25,28);text(Needle.NAME,nx+12,ny-2,12,INK,'center',true);rect(nx-57,ny+25,114,23,9,'#fff4e8f5','#c8a98e');fitText('绣坊 '+state.needlework.level+'级 · 接单绣作',nx,ny+37,10,100,INK,'center',true);button('needle-shop','楚绣坊 · 接单绣作',nx-59,ny-27,118,79,needleHome,{paint:false});
       }
       ctx.restore();
       ctx.fillStyle=gradient(v.y-12,34,'#8a596280','#8a596200');ctx.fillRect(0,v.y-12,W,34);
@@ -781,11 +791,11 @@
     function sheet(title,sub,height=580){
       ctx.fillStyle='#70465378';ctx.fillRect(0,0,W,H);hits=[];
       const x=12,w=366,subWidth=w-70;ctx.font=`10px ${FONT}`;const extra=ctx.measureText(playerText(sub)).width>subWidth?14:0;
-      const wanted=height+extra,h=Math.min(wanted,H-safe-bottom-42),y=Math.max(safe+20,H-bottom-h-17),cx=x+w-49,cy=y+34;
+      const wanted=height+extra+18,h=Math.min(wanted,H-safe-bottom-42),y=Math.max(safe+20,H-bottom-h-17),cx=x+w-49,cy=y+45;
       ctx.save();ctx.shadowColor='#201a1455';ctx.shadowBlur=24;artPlate('ledger',x-3,y-7,w+6,h+14,true);ctx.restore();
-      const titleSize=fitText(title,x+31,y+31,22,cx-30-(x+31),'#68464e','left',true);lines(sub,x+35,y+60,subWidth,10,'#877454',14,2);divider(x+35,y+79+extra,w-70);
+      const titleSize=fitText(title,x+31,y+44,22,cx-30-(x+31),'#68464e','left',true);lines(sub,x+35,y+73,subWidth,10,'#877454',14,2);divider(x+35,y+94+extra,w-70);
       closeControl('close','关闭',cx,cy,()=>{if(modal==='regional'){leaveRegional();}else if(modal==='festival-result'){screen='festival';close();}else if(modal==='rain-result'){screen='game';close();}else if(modal==='rain-archive'&&screen==='service'&&service?.rainRun&&service.finished)open('rain-result');else if(modal==='stock')leaveStock();else if(modal==='energy')leaveEnergy();else if(modal==='growth')leaveBook();else if(screen==='needlework'&&state.needlework.run?.finished)needleHome();else if(screen==='service'&&modal==='service-result'){screen='game';close();}else if(screen==='service'&&service?.finished)open('service-result');else if(screen==='service')modal=null;else close();});
-      const bodyY=y+94+extra,q=Math.min(1,(h-114-extra)/(height-114));panelReview={title:playerText(title),x,y,w,h,titleSize,header:{x:x+31,y:y+18,w:cx-30-(x+31),h:27},close:{x:cx-22,y:cy-22,w:44,h:44},bodyY,scale:q};paintReview=[];
+      const bodyY=y+112+extra,q=Math.min(1,(h-132-extra)/(height-114));panelReview={title:playerText(title),x,y,w,h,titleSize,header:{x:x+31,y:y+31,w:cx-30-(x+31),h:27},close:{x:cx-22,y:cy-22,w:44,h:44},bodyY,scale:q};paintReview=[];
       panelTransform={q,y:bodyY};ctx.translate(195*(1-q),bodyY*(1-q));ctx.scale(q,q);
       return{x:x+35,y:bodyY,w:w-70,h:height-114,bottom:bodyY+height-114,top:y};
     }
@@ -1054,12 +1064,13 @@
       canvas.width=Math.round(width*ratio);canvas.height=Math.round(height*ratio);
       ctx.setTransform(scale*ratio,0,0,scale*ratio,0,0);ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';focus=-1;
     }
+    function syncMusic(){const cue=['title','intro','opening-story'].includes(screen)?'prologue':'business',paused=screen==='intro'&&introPausedAt!==null,key=[cue,state.sound,paused,musicRevision].join(':');if(key!==lastMusicKey){lastMusicKey=key;if(env.music)env.music(state.sound,{cue,paused,revision:musicRevision});}}
     function draw(now){
       if(hidden)return;
       hits=[];panelReview=null;paintReview=[];needleReview=null;guideReview=null;quietReview=[];panelTransform=null;ctx.globalAlpha=1;ctx.clearRect(0,0,W,H);
       if(!ready){ctx.fillStyle=TEAL;ctx.fillRect(0,0,W,H);text(loadFailed?'画面未能展开，请重新进入':'正在点亮长街',195,H/2,20,'#e7d6ae','center');if(!loadFailed)text(Math.round(loadProgress*100)+'%',195,H/2+36,13,'#d8c18c','center');return;}
       if(screen==='opening-story'){drawOpeningStory(now);if(modal)drawModal();}else if(screen==='needle-lobby'){drawNeedleLobby(now);if(modal)drawModal();}else if(screen==='needlework'){drawNeedleWork(now);if(modal)drawModal();else needleGuideOverlay(now);}else if(screen==='title')brandTitle(now);else if(screen==='intro')drawIntro(now);else if(screen==='decorate'){drawDecorate(now);if(modal)drawModal();}else if(screen==='festival'){festivalScreen(now);if(modal)drawModal();}else if(screen==='service'){drawService(now);guideOverlay(now);if(modal)drawModal();}else{drawGame(now);if(modal)drawModal();}
-      drawFeedback(now);
+      syncMusic();drawFeedback(now);
       if(env.controls)env.controls(hits.map(({id,label,disabled})=>({id,label,disabled})));
     }
     function loop(){
@@ -1116,7 +1127,7 @@
       Street.focus(streetCamera,streetViewport(),state.district);await streetArt.preload(streetTiles(streetViewport()).map(t=>t.id));ready=true;persist();draw(Date.now());if(env.onReady)env.onReady();raf=env.requestFrame(loop);
     }
     init();
-    return{locateShop,pointer,pointerDown,pointerMove,pointerUp,pointerCancel,key,resize,hide,show,click,save:persist,inspect:()=>({screen,modal,ready,width:W,height:H,scale,selectedShop,selectedSlot,selectedActivity,bookTab,bookPage,bookShop,stockSlot,stockPage,mapSelected,intro:screen==='intro'?Opening.at(introElapsed(Date.now())):null,introPaused:introPausedAt!==null,crewPage,decorPage,serviceResult,street:{...streetCamera,art:streetArt.inspect(),viewport:streetViewport(),width:Street.WIDTH,height:Street.HEIGHT,browsing:Street.nearest(streetCamera,streetViewport()),dragging:!!streetGesture?.moved},walkers:[],rank:Profile.rank(state),needlework:JSON.parse(JSON.stringify(state.needlework)),layout:env.review?{panel:panelReview,texts:paintReview,needle:needleReview,guide:guideReview,quiet:quietReview}:null,guideFlow:guideFlow?{step:guideFlow.step}:null,state:JSON.parse(JSON.stringify(state)),service:service?JSON.parse(JSON.stringify(service)):null,buttons:hits.map(({id,label,x,y,w,h,disabled,visual,painted})=>({id,label,x,y,w,h,disabled,visual,painted}))}),destroy:()=>{persist();streetArt.destroy();if(env.cancelFrame)env.cancelFrame(raf);}};
+    return{locateShop,pointer,pointerDown,pointerMove,pointerUp,pointerCancel,key,resize,hide,show,click,save:persist,inspect:()=>({screen,modal,ready,width:W,height:H,scale,selectedShop,selectedSlot,selectedActivity,bookTab,bookPage,bookShop,stockSlot,stockPage,mapSelected,intro:screen==='intro'?Opening.at(introElapsed(Date.now())):null,introPaused:introPausedAt!==null,crewPage,decorPage,serviceResult,street:{...streetCamera,art:streetArt.inspect(),viewport:streetViewport(),width:Street.WIDTH,height:Street.HEIGHT,browsing:Street.nearest(streetCamera,streetViewport()),dragging:!!streetGesture?.moved},walkers:[],rank:Profile.rank(state),needlework:JSON.parse(JSON.stringify(state.needlework)),layout:env.review?{panel:panelReview,texts:paintReview,needle:needleReview,guide:guideReview,quiet:quietReview}:null,guideFlow:guideFlow?{step:guideFlow.step}:null,state:JSON.parse(JSON.stringify(state)),service:service?JSON.parse(JSON.stringify(service)):null,buttons:hits.map(({id,label,x,y,w,h,disabled,visual,guidePoint,painted})=>({id,label,x,y,w,h,disabled,visual,guidePoint,painted}))}),destroy:()=>{persist();streetArt.destroy();if(env.cancelFrame)env.cancelFrame(raf);}};
   }
   return{create};
 });

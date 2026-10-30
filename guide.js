@@ -4,7 +4,7 @@ function fresh(){return{guide:{done:false,step:0,rewarded:false,upgradePending:f
 function restore(s,raw){const old=raw.guide;if(!old){s.guide={done:s.serviceRounds>0,step:0,rewarded:s.serviceRounds>0,upgradePending:false,lessons:s.serviceByShop.map(n=>n>0)};return;}s.guide={done:old.done===true,step:Number.isInteger(old.step)?Math.max(0,Math.min(7,old.step)):0,rewarded:old.rewarded===true,upgradePending:old.upgradePending===true,lessons:[0,1,2].map(i=>old.lessons?.[i]===true)};}
 function target(g,s){
  const shop=s.shop,id=s.menu[0];if(shop>0){if(g.step===0)return{ids:['guide-next'],line:shop===1?'先看客人的香品，再亲手调和。':'先做一份糕点，再按配方收尾。',title:shop===1?'阿绫 · 香坊初课':'阿绫 · 点心初课'};if(g.step===1)return{ids:['cook-'+id],line:'点这款货品，先让工作台动起来。',title:'第一步 · 选品'};
-  const st=s.stations.findIndex(x=>x.food!==null);if(st>=0){const a=s.stations[st];return{ids:[(a.phase==='finishing'?'craft-':a.phase==='ready'?'pickup-':'pickup-')+st,...[0,1,2].map(i=>'finish-choice-'+i)],line:a.phase==='finishing'?'照配方挑材料，选对才有上佳赏钱。':a.phase==='ready'?'成品做好了，点一下取到托盘。':'制作中，稍等便能亲手完成下一步。',title:'第二步 · 亲手完成'};}return{ids:['tray-0','guest-0'],line:'把托盘里的成品，送给想要它的客人。',title:'第三步 · 送客'};
+  const st=s.stations.findIndex(x=>x.food!==null);if(st>=0){const a=s.stations[st];return{ids:[(a.phase==='finishing'?'craft-':a.phase==='ready'?'pickup-':'pickup-')+st,...[0,1,2].map(i=>'finish-choice-'+i)],line:a.phase==='finishing'?'照配方选料，选对有赏钱。':a.phase==='ready'?'成品已好，点工作台取货。':'正在制作，请稍候。',title:'第二步 · 亲手完成'};}return{ids:['tray-0','guest-0'],line:'把托盘成品，送给这位客人。',title:'第三步 · 送客'};
  }
  const steps=[{ids:['guide-next'],title:'阿绫 · 陪你学会待客',line:'先看订单扇，客人想喝一盏清芽茶。'},
  {ids:['cook-0'],title:'第一步 · 选茶',line:'点清芽茶，先沏好这一盏。'},
