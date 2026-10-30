@@ -1,7 +1,7 @@
 (function(){
   'use strict';
-  const query=new URLSearchParams(location.search),preview=query.get('preview')==='beginning',prefix=preview?'chuer-opening-v16:':'';
-  if(preview&&query.has('fresh')){localStorage.removeItem(prefix+'chuer-dangjia-v9');query.delete('fresh');history.replaceState(null,'',location.pathname+'?'+query.toString());}
+  const query=new URLSearchParams(location.search),demo=document.documentElement.dataset.demo==='true'||query.get('demo')==='1',preview=demo||query.get('preview')==='beginning',prefix=preview?'chuer-opening-v16:':'';
+  if(!demo&&preview&&query.has('fresh')){localStorage.removeItem(prefix+'chuer-dangjia-v9');query.delete('fresh');history.replaceState(null,'',location.pathname+'?'+query.toString());}
   const canvas=document.getElementById('game'),shell=document.getElementById('game-shell'),controls=document.getElementById('accessible-controls');
   let audio,game,controlKey='';
   const soundtrack=ChuerMusic.create({createAudio:()=>new Audio()});
@@ -19,15 +19,15 @@
       const form=document.createElement('form');form.className='name-form';const title=document.createElement('h2');title.id='name-title';title.textContent='给自己一个掌柜名';
       const label=document.createElement('label');label.htmlFor='player-name';label.textContent='掌柜名';const input=document.createElement('input');input.id='player-name';input.name='player-name';input.type='text';input.value=value;input.maxLength=maxChars*2;input.autocomplete='off';input.spellcheck=false;
       const help=document.createElement('p');help.textContent='1—8个汉字、字母或数字，也可用间隔点。';const error=document.createElement('p');error.className='name-error';error.setAttribute('role','alert');
-      const actions=document.createElement('div');actions.className='name-actions';const cancel=document.createElement('button');cancel.type='button';cancel.id='name-cancel';cancel.textContent='暂不更改';const submit=document.createElement('button');submit.type='submit';submit.id='name-save';submit.textContent='保存掌柜名';actions.append(cancel,submit);form.append(title,label,input,help,error,actions);overlay.append(form);shell.append(overlay);
+      const actions=document.createElement('div');actions.className='name-actions';const cancel=document.createElement('button');cancel.type='button';cancel.id='name-cancel';cancel.textContent='暂不更改';const submit=document.createElement('button');submit.type='submit';submit.id='name-save';submit.textContent=demo?'使用掌柜名':'保存掌柜名';actions.append(cancel,submit);form.append(title,label,input,help,error,actions);overlay.append(form);shell.append(overlay);
       const end=result=>{overlay.remove();canvas.focus({preventScroll:true});resolve(result);};cancel.onclick=()=>end(null);input.oninput=()=>{error.textContent='';};form.onsubmit=e=>{e.preventDefault();const r=ChuerProfile.validateName(input.value);if(!r.ok){error.textContent=r.message;return;}end(r.name);};overlay.onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();end(null);}if(e.key==='Tab'){const focusable=[input,cancel,submit],i=focusable.indexOf(document.activeElement);e.preventDefault();focusable[(i+(e.shiftKey?-1:1)+3)%3].focus();}};input.focus();input.select();
     });
   }
   const size=()=>{const b=shell.getBoundingClientRect();return{width:b.width,height:b.height,dpr:devicePixelRatio||1};};
   game=ChuerGame.create({canvas,...size(),
-    review:query.has('test'),preview,newCampaign:()=>{location.href=location.pathname+'?v=0.23&preview=beginning&fresh=1';},
-    read:key=>{try{return JSON.parse(localStorage.getItem(prefix+key));}catch(e){return null;}},
-    write:(key,data)=>{try{localStorage.setItem(prefix+key,JSON.stringify(data));}catch(e){}},
+    review:query.has('test'),preview,demo,newCampaign:()=>{location.href=demo?'demo.html?v=0.23.1':location.pathname+'?v=0.23.1&preview=beginning&fresh=1';},
+    read:key=>{if(demo)return null;try{return JSON.parse(localStorage.getItem(prefix+key));}catch(e){return null;}},
+    write:(key,data)=>{if(demo)return;try{localStorage.setItem(prefix+key,JSON.stringify(data));}catch(e){}},
     loadImage:src=>new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=reject;img.src=src;}),
     editName,requestFrame:fn=>requestAnimationFrame(fn),cancelFrame:id=>cancelAnimationFrame(id),sound,
     music:(enabled,context)=>soundtrack.update({enabled,...context}),
@@ -48,6 +48,6 @@
   new ResizeObserver(()=>{const s=size();game.resize(s.width,s.height,s.dpr);}).observe(shell);
   document.addEventListener('visibilitychange',()=>{if(document.hidden){game.hide();soundtrack.suspend();}else{game.show();soundtrack.resume();}});
   window.addEventListener('pagehide',()=>{game.hide();soundtrack.suspend();});
-  window.addEventListener('pageshow',()=>{game.show();soundtrack.resume();});
+  window.addEventListener('pageshow',event=>{if(demo&&event.persisted){location.reload();return;}game.show();soundtrack.resume();});
   if(new URLSearchParams(location.search).has('test'))window.__chuer=game;
 })();
