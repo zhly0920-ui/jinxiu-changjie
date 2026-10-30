@@ -17,7 +17,7 @@
     let tick=Date.now(),saved=tick,hidden=false,raf=null,toast=null,effects=[],pendingOffline=C.offline(state,tick);
     let storyIndex=0,storyStep=0,confirmSku=null,returnTo=null,modalScroll=0;
     let service=null,serviceResult=null,serviceFX=[],serviceHint='',pressedId=null,pressedUntil=0,crewPage=0,decorPage=0,selectedSlot='table1',selectedActivity='daily',bookTab='recipes',bookPage=0,bookReturn=null,mapSelected=0,energyReturn=null,bookShop=0,stockSlot=0,stockPage=0,stockReturn=null,guideFlow=null,tradeRegion=0,tradeShop=0,tradeSlot='left',regionalReturn=null;
-    let journalPage=0,guideReview=null,quietReview=[],needleMotion=null;
+    let journalPage=0,guideReview=null,paragraphReview=[],quietReview=[],needleMotion=null;
     let needleMode='simple',needleSupplyMode='simple',needlePage=0,needleStroke=null,panelTransform=null,panelReview=null,paintReview=[],needleReview=null;
     const streetCamera=Street.create(),streetArt=StreetArt.create(id=>env.loadImage(ART.sources['streetTile'+id]));let streetGesture=null,pointerSuppressed=false;
     const reduced=()=>state.reducedMotion;
@@ -32,10 +32,14 @@
     function fitText(s,x,y,size,width,color=INK,align='left',bold=false){let actual=size;ctx.font=`${bold?'bold ':''}${actual}px ${FONT}`;const measured=ctx.measureText(playerText(s)).width;if(measured>width)actual*=width/measured;text(s,x,y,actual,color,align,bold);return actual;}
     function closeControl(id,label,cx,cy,fn){button(id,label,cx-22,cy-22,44,44,fn,{paint:false});art(id===pressedId&&Date.now()<pressedUntil?'panelCloseDown':'panelClose',cx-17,cy-17,34,34);ctx.save();ctx.strokeStyle='#8f596c';ctx.lineWidth=1.55;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(cx-4.5,cy-4.5);ctx.lineTo(cx+4.5,cy+4.5);ctx.moveTo(cx+4.5,cy-4.5);ctx.lineTo(cx-4.5,cy+4.5);ctx.stroke();ctx.restore();}
     function lines(s,x,y,width,size=14,color=INK,line=23,max=8){
-      ctx.font=`${size}px ${FONT}`;let out=[];
-      for(const para of playerText(s).split('\n')){let row='';for(const char of para){if(ctx.measureText(row+char).width>width&&row){out.push(row);row=char;}else row+=char;}out.push(row);}
-      out.slice(0,max).forEach((r,i)=>text(r,x,y+i*line,size,color));return Math.min(out.length,max)*line;
+      const source=playerText(s);let actual=size;
+      function wrap(){ctx.font=`${actual}px ${FONT}`;const out=[];for(const para of source.split('\n')){const rows=[];let row='';for(const ch of para){if(row&&ctx.measureText(row+ch).width>width){if(/[，。！？；：、）》」』】〕…,.!?;:%]/.test(ch)||/[（《「『【]$/.test(row)){const tail=row.slice(-1);rows.push(row.slice(0,-1));row=tail+ch;}else{rows.push(row);row=ch;}}else row+=ch;}rows.push(row);if(rows.length>1&&rows.at(-1).length<=2&&rows.at(-2).length>=6){rows[rows.length-1]=rows[rows.length-2].slice(-2)+rows.at(-1);rows[rows.length-2]=rows[rows.length-2].slice(0,-2);}out.push(...rows);}return out;}
+      let out=wrap();while(out.length>max&&actual>Math.min(10,size)){actual=Math.max(Math.min(10,size),actual-.5);out=wrap();}
+      out.slice(0,max).forEach((r,i)=>text(r,x,y+i*line,actual,color));
+      if(env.review)paragraphReview.push({text:source,rows:out,font:actual,shown:Math.min(out.length,max),cropped:out.length>max,scope:panelReview?'panel':'screen',...uiBox(x,y-actual*.56,width,Math.min(out.length,max)*line)});
+      return Math.min(out.length,max)*line;
     }
+    function paperNotice(title,body,x,y,w=252){const inner=38,font=12,line=21,h=132;artPlate('scroll',x,y,w,h,true);text(title,x+inner,y+28,14,TEAL,'left',true);lines(body,x+inner,y+62,w-inner*2,font,INK,line,3);}
     function gradient(y,h,a,b){const g=ctx.createLinearGradient(0,y,0,y+h);g.addColorStop(0,a);g.addColorStop(1,b);return g;}
     function cover(img,x,y,w,h,zoom=1,crop){
       if(!img)return;
@@ -440,7 +444,7 @@
         art('recipeMat',x-50,ry+7,100,57);foodSprite(r.id,x,ry+29,65);if(s.recipeMastery[r.id].level)art('star',x+22,ry+2,17,17);text(r.name,x,ry+79,13,'#fff0cd','center',true);if(!s.tutorial)text(`${s.recipeMastery[r.id].title} · ${(r.seconds*s.recipeMastery[r.id].speed).toFixed(1)}秒 · ${r.price+s.recipeMastery[r.id].priceAdd}两`,x,ry+98,9,'#e6c99d','center');
         button('cook-'+r.id,'制作'+r.name,x-54,ry-8,108,s.tutorial?100:115,()=>{const result=S.cook(s,r.id);if(!result.ok)say(result.message);else chime('tap');},{paint:false,guideFocus:{x:x-45,y:ry+2,w:90,h:65},guidePoint:{x,y:ry+29}});
       });
-      drawCraftChoices(s,l,now);if(s.rain){artPlate('scroll',125,safe+124,252,127,true);text(Events.PEOPLE[s.rain.npc].name,142,safe+146,14,TEAL,'left',true);lines(s.rain.hint,142,safe+174,220,12,INK,21,3);}
+      drawCraftChoices(s,l,now);if(s.rain)paperNotice(Events.PEOPLE[s.rain.npc].name,s.rain.hint,125,safe+124);
       let hint=s.shop===0?'先点茶点制作，做好后取餐，再点客人送上':'制作后点击工作台，完成配香或压花再取货';
       if(s.stations.some(x=>x.phase==='steeping'))hint='指针进绿色时点茶炉起壶，金色区茶香最佳';
       else if(s.stations.some(x=>x.phase==='finishing'))hint='点击待完成的工作台，照配方选香材、点缀或纹模';
@@ -448,9 +452,9 @@
       else if(s.stations.some(x=>x.phase==='ready'))hint='出餐位亮了，点一下取到托盘，趁热送上';
       else if(s.stations.some(x=>x.food!==null))hint='茶点制作中，可以同时照看别的炉子';
       if(!s.tutorial)text(s.practice?'免费练手 · 本场不计收益、手艺与通商进度':hint,195,H-bottom-8,9,'#f7e5be','center');
-      serviceFX=serviceFX.filter(e=>now-e.start<(e.flight?360:1500));serviceFX.forEach(e=>{
+      serviceFX=serviceFX.filter(e=>now-e.start<(e.flight?360:1500));if(!modal)serviceFX.forEach(e=>{
         if(e.flight){if(reduced())return;const t=Math.min(1,(now-e.start)/360),p=1-(1-t)**3;foodSprite(e.food,e.x+(e.endX-e.x)*p,e.y+(e.endY-e.y)*p-Math.sin(t*Math.PI)*35,43);return;}
-        const t=(now-e.start)/1500;ctx.globalAlpha=1-t;text(e.message,e.x,e.y-t*35,15,'#fff4c1','center',true);ctx.globalAlpha=1;
+        const t=(now-e.start)/1500;ctx.globalAlpha=1-t;fitText(e.message,Math.max(76,Math.min(W-76,e.x)),e.y-t*35,15,146,'#fff4c1','center',true);ctx.globalAlpha=1;
       });
     }
     function serviceResultModal(){
@@ -519,7 +523,7 @@
       for(const[n,id,label,mark,delta]of [[0,'street-zoom-out','看远','−',-.1],[1,'street-zoom-in','拉近','+',.1]]){const x=266+n*43;ctx.beginPath();ctx.arc(x,y+17,16,0,Math.PI*2);ctx.fillStyle='#f5ead5e8';ctx.fill();ctx.strokeStyle='#c3a368';ctx.lineWidth=1.2;ctx.stroke();text(mark,x,y+16,23,TEAL,'center');text(label,x,y+47,9,'#f7e5bd','center');button(id,label,x-20,y-2,40,56,()=>Street.zoom(streetCamera,streetViewport(),streetCamera.zoom+delta),{paint:false});}const mx=342,my=y-2,mw=34,mh=51;ctx.drawImage(images.streetPreview,mx,my,mw,mh);ctx.strokeStyle='#c8ae72';ctx.lineWidth=1;ctx.strokeRect(mx,my,mw,mh);const v=streetViewport();ctx.strokeStyle='#fff5c8';ctx.strokeRect(mx+streetCamera.x/Street.WIDTH*mw,my+streetCamera.y/Street.HEIGHT*mh,v.w/(streetCamera.zoom*Street.WIDTH)*mw,v.h/(streetCamera.zoom*Street.HEIGHT)*mh);button('street-overview','查看全街与开拓条件',mx-4,my-4,mw+8,mh+8,()=>open('map'),{paint:false});
       if(Needle.storesAvailable(state)&&state.rain.pending&&!reduced()){ctx.beginPath();ctx.fillStyle='#f3ce86';ctx.arc(143,y+5,3+Math.sin(now/400),0,Math.PI*2);ctx.fill();}
     }
-    function lanternProgress(y,small=false){const n=state.festival.wins;for(let i=0;i<12;i++){const col=i%6,row=Math.floor(i/6),x=small?65+col*51:54+col*56,yy=y+row*(small?43:57),lit=i<n;if(lit&&!reduced()){const g=ctx.createRadialGradient(x,yy+16,1,x,yy+16,24);g.addColorStop(0,'#ffd47b66');g.addColorStop(1,'#ffd47b00');ctx.fillStyle=g;ctx.fillRect(x-24,yy-8,48,48);}art('festivalEntry',x-15,yy-2,30,37,lit?1:.52);if(!small){ctx.beginPath();ctx.arc(x,yy+44,9,0,Math.PI*2);ctx.fillStyle=lit?'#c29555':'#704c47ee';ctx.fill();ctx.strokeStyle='#dbb77b';ctx.lineWidth=.7;ctx.stroke();text(i+1,x,yy+44,9,'#fff0d0','center',true);}}}
+    function lanternProgress(y,small=false){const n=state.festival.wins;for(let i=0;i<12;i++){const col=i%6,row=Math.floor(i/6),x=small?65+col*51:54+col*56,yy=y+row*(small?48:57),lit=i<n,tier=Math.floor(i/3);if(lit&&!reduced()){const g=ctx.createRadialGradient(x,yy+16,1,x,yy+16,24);g.addColorStop(0,'#ffd47b66');g.addColorStop(1,'#ffd47b00');ctx.fillStyle=g;ctx.fillRect(x-24,yy-8,48,48);}art('festivalTier'+tier,x-20,yy-2,40,small?46:43,lit?1:.36);if(!small){ctx.beginPath();ctx.arc(x,yy+49,8,0,Math.PI*2);ctx.fillStyle=lit?'#c29555':'#704c47ee';ctx.fill();ctx.strokeStyle='#dbb77b';ctx.lineWidth=.7;ctx.stroke();text(i+1,x,yy+49,9,'#fff0d0','center',true);}}}
     function festivalScreen(now){
       const a=Events.status(state),f=state.festival,p=Events.CHAPTERS[a.chapter];cover(images.festivalScene,0,0,W,H);ctx.fillStyle=gradient(0,190,'#674552d9','#67455200');ctx.fillRect(0,0,W,190);ctx.fillStyle=gradient(H-350,350,'#6b435100','#6b4351df');ctx.fillRect(0,H-350,W,350);
       text('灯市百盏宴',22,safe+34,31,'#ffe8ba','left',true);text(!a.joined?'接下宴帖后，开启属于你的七日灯市':a.complete?'十二盏灯已亮，长街记得你的手艺':a.ended?'本轮宴席已散 · 兑奖仍保留':`余 ${Math.floor(Math.ceil(a.remaining/3600000)/24)}天 ${Math.ceil(a.remaining/3600000)%24}时 · 已点亮 ${f.wins}/12盏`,24,safe+65,11,'#e9d5b1');button('festival-home','回商街',309,safe+16,65,38,()=>{screen='game';close();},{type:'outline',size:11});
@@ -534,7 +538,7 @@
     }
     function startFestival(bold){const r=Events.begin(state,bold,selectedShop);if(!r.ok){if(state.energy<(bold?30:20))openEnergy();say(r.message);return;}service=S.start({shop:selectedShop,level:Math.max(3,state.shops[selectedShop].level),round:2,menu:r.menu,districts:state.districts,contract:r.profile,recipeXP:state.recipeXP,guestVisits:state.guestVisits,...World.buffs(state,selectedShop)});service.festivalRun=r.id;service.energyCost=r.cost;service.day=state.serviceByShop[selectedShop]+1;serviceResult=null;guideFlow=null;screen='service';modal=null;S.step(service,.1);tick=Date.now();persist();}
     function festivalRewards(){const f=state.festival,b=sheet('灯市谢礼','已点亮 '+f.wins+'/12盏 · 灯花签 '+f.tokens+'枚 · 获得后永久保留',570);Events.REWARDS.forEach((r,i)=>{const y=b.y+i*118,got=f.claimed.includes(r.id),can=f.wins>=r.wins&&f.tokens>=r.tokens&&!got;art(r.frame,b.x-4,y,79,91);text(r.name,b.x+86,y+16,17,INK,'left',true);text(r.desc,b.x+86,y+42,11,TEAL);text(`${r.wins}席`+(r.tokens?` · ${r.tokens}灯花签`:' · 免费领取'),b.x+86,y+65,10,FADE);button('festival-claim-'+r.id,got?'已收入行囊':'领取',b.x+b.w-87,y+82,85,29,()=>{const a=Events.claim(state,r.id);say(a.message);if(a.ok){persist();chime('upgrade');}},{type:can?'gold':'outline',disabled:!can,size:11});if(i<2)divider(b.x,y+113,b.w);});button('festival-reward-back','回到灯市',b.x,b.bottom-36,b.w,33,()=>{close();screen='festival';},{type:'outline',size:13});}
-    function festivalResult(){const r=serviceResult,a=r.festival,b=sheet(a.won?'又点亮一盏人间灯':'这一席，留下手艺与心意',a.line,570);art('festivalEntry',144,b.y-1,103,115);text(`灯花签 +${a.tokens}`,195,b.y+141,27,TEAL,'center',true);text(`实际入账 ${r.silver}两 · 招待${r.served}位 · 上佳${r.perfectDelivered}份`,195,b.y+177,11,FADE,'center');lanternProgress(b.y+209,true);text(`已点亮 ${a.wins}/12盏 · ${a.wins>=12?'金桂灯可以领取了':'每席进度已保存'}`,195,b.y+310,12,INK,'center');button('festival-result-next','再挑一席 · 回灯市',b.x,b.bottom-89,b.w,37,()=>{screen='festival';close();},{type:'gold',size:15});button('festival-result-home','带着灯火回商街',b.x,b.bottom-38,b.w,33,goServiceHome,{type:'outline',size:13});}
+    function festivalResult(){const r=serviceResult,a=r.festival,tier=Events.lanternTier(a.wins),b=sheet(a.won?'又点亮一盏人间灯':'这一席，留下手艺与心意',a.line,570);art('festivalTier'+tier,145,b.y-1,100,102);text(Events.LANTERNS[tier],195,b.y+113,12,INK,'center',true);text(`灯花签 +${a.tokens}`,195,b.y+149,25,TEAL,'center',true);fitText(`实际入账 ${r.silver}两 · 招待${r.served}位 · 上佳${r.perfectDelivered}份`,195,b.y+180,11,b.w,FADE,'center');lanternProgress(b.y+204,true);text(`已点亮 ${a.wins}/12盏 · 每席进度已保存`,195,b.y+315,12,INK,'center');fitText(a.wins>=12?'四阶华灯已收齐 · 可领取永久金桂灯':tier<3?'再点亮'+(3-a.wins%3)+'盏，解锁'+Events.LANTERNS[tier+1]:'凤纹华灯已解锁 · 继续点亮长街',195,b.y+339,11,b.w,TEAL,'center');button('festival-result-next','再挑一席 · 回灯市',b.x,b.bottom-89,b.w,37,()=>{screen='festival';close();},{type:'gold',size:15});button('festival-result-home','带着灯火回商街',b.x,b.bottom-38,b.w,33,goServiceHome,{type:'outline',size:13});}
     function rainModal(){
       const b=sheet(state.rain.pending?'檐下，有人避雨':'雨夜旧物','三位来客，九次相逢 · 不影响主线证据',620),p=Events.rainPlan(state);
       if(!p.ok){Events.PEOPLE.forEach((r,i)=>{const x=b.x+16+i*100;art(r.frame,x-9,b.y-6,82,147);text(r.name,x+31,b.y+157,13,INK,'center',true);text(`${state.rain.visits[i]}/3次相逢`,x+31,b.y+182,10,FADE,'center');art(r.item,x+4,b.y+209,57,68,state.rain.collection.includes(r.item)?1:.22);});text('日常经营几场，有缘人便会带雨而来。',195,b.y+307,12,TEAL,'center');text(state.rain.vase?'旧物已集齐，天青瓶已可用于三铺布置。':'集齐三件旧物，获得永久陈设「雨过天青瓶」。',195,b.y+337,10,FADE,'center');art('rainVase',154,b.y+363,81,89);return;}
@@ -670,8 +674,8 @@
         }
       }
       text(shot.place,24,safe+34,12,'#f0dbb2');
-      ctx.globalAlpha=reduced()?1:Math.min(1,Math.max(0,t-.2)*2);if(index===INTRO.length-1){art('seriesWordmark',56,H-bottom-407,126,33);art('titleWordmark',23,H-bottom-369,192,161);}else text(shot.title,26,H-bottom-246,30,'#f7e2b4');ctx.globalAlpha=1;
-      const caption=reduced()?shot.line:shot.line.slice(0,Math.floor(Math.max(0,t-.6)*17));lines(caption,27,H-bottom-188,336,17,'#f5ecdb',29,3);
+      ctx.globalAlpha=reduced()?1:Math.min(1,Math.max(0,t-.2)*2);if(index===INTRO.length-1){art('seriesWordmark',56,H-bottom-456,126,33);art('titleWordmark',23,H-bottom-417,192,161);}else text(shot.title,26,H-bottom-294,30,'#f7e2b4');ctx.globalAlpha=1;
+      const caption=reduced()?shot.line:shot.line.slice(0,Math.floor(Math.max(0,t-.6)*17));lines(caption,27,H-bottom-238,336,16,'#f5ecdb',28,4);
       if(elapsed>=3){button('skip','跳过',306,safe+16,62,38,finishIntro,{paint:false});text('跳过',337,safe+35,13,'#fff2d7','center');}
       button('intro-pause',introPausedAt===null?'暂停剧情':'继续剧情',250,safe+13,44,44,toggleIntro,{paint:false});icon(introPausedAt===null?'pause':'arrow',262,safe+23,21);
       button('intro-prev','上一幕',25,H-bottom-117,76,36,()=>jumpIntro(index-1),{paint:false,disabled:index===0});text('上一幕',63,H-bottom-99,12,index===0?'#a99d8955':'#e8d5ad','center');
@@ -759,12 +763,12 @@
       const sewing=state.activeTrade==='needlework',questY=H-bottom-138,q=sewing?{title:Needle.goal(state)}:C.QUESTS[state.quest],done=!sewing&&C.questReady(state);
       artPlate('scroll',15,questY-4,360,34,true);
       icon('seal',27,questY+1,22);
-      text(q?q.title:'长街初成，灯火不息',59,questY+12,11,INK,'left',true);
+      fitText(q?q.title:'长街初成，灯火不息',59,questY+12,11,264,INK,'left',true);
       if(done)text('领奖',350,questY+12,10,RED,'right',true);else icon('arrow',340,questY+2,19);
       button('quest',done?'领取主线奖励':'前往主线目标',19,questY-3,352,28,sewing?needleHome:questAction,{paint:false});
       const playY=H-bottom-98;
       button('play-service',sewing?'开张接绣单 · 楚绣坊':'开门迎客 · '+Street.name(state.district,state.shops[selectedShop].level?selectedShop:0),24,playY,215,35,()=>{if(sewing){needleHome();return;}if(!state.shops[selectedShop].level)selectedShop=0;open('service-brief');},{type:'gold',size:16});
-      button('street-home','回我的店',257,playY,111,35,focusStreetHome,{type:'outline',size:13});
+      const next=!sewing&&C.nextShop(state);button('street-home',next?'筹开'+next.short:'回我的店',257,playY,111,35,()=>{if(next){selectedShop=next.index;open('shop');}else focusStreetHome();},{type:'outline',size:13});
       const navY=H-bottom-60;
       ctx.fillStyle=gradient(navY-8,68+bottom,'#1e241800','#63444dea');ctx.fillRect(0,navY-8,W,68+bottom);artPlate('navShelf',-7,navY+14,W+14,52+bottom);
       (Needle.storesAvailable(state)?[['street','商街',null],['orders','商单','orders'],['partners','伙伴','partners'],['case','旧案','case'],['map','舆图','map']]:[['street','绣坊','needle-lobby'],['orders','进货','needle-supply'],['case','绣样','needle-book'],['clothes','衣橱','needle-wardrobe'],['map','舆图','map']]).forEach(([id,label,target],i)=>{
@@ -796,7 +800,7 @@
       const titleSize=fitText(title,x+31,y+44,22,cx-30-(x+31),'#68464e','left',true);lines(sub,x+35,y+73,subWidth,10,'#877454',14,2);divider(x+35,y+94+extra,w-70);
       closeControl('close','关闭',cx,cy,()=>{if(modal==='regional'){leaveRegional();}else if(modal==='festival-result'){screen='festival';close();}else if(modal==='rain-result'){screen='game';close();}else if(modal==='rain-archive'&&screen==='service'&&service?.rainRun&&service.finished)open('rain-result');else if(modal==='stock')leaveStock();else if(modal==='energy')leaveEnergy();else if(modal==='growth')leaveBook();else if(screen==='needlework'&&state.needlework.run?.finished)needleHome();else if(screen==='service'&&modal==='service-result'){screen='game';close();}else if(screen==='service'&&service?.finished)open('service-result');else if(screen==='service')modal=null;else close();});
       const bodyY=y+112+extra,q=Math.min(1,(h-132-extra)/(height-114));panelReview={title:playerText(title),x,y,w,h,titleSize,header:{x:x+31,y:y+31,w:cx-30-(x+31),h:27},close:{x:cx-22,y:cy-22,w:44,h:44},bodyY,scale:q};paintReview=[];
-      panelTransform={q,y:bodyY};ctx.translate(195*(1-q),bodyY*(1-q));ctx.scale(q,q);
+      paragraphReview=[];panelTransform={q,y:bodyY};ctx.translate(195*(1-q),bodyY*(1-q));ctx.scale(q,q);
       return{x:x+35,y:bodyY,w:w-70,h:height-114,bottom:bodyY+height-114,top:y};
     }
     function divider(x,y,w){ctx.fillStyle='#c6b68b66';ctx.fillRect(x,y,w,.7);}
@@ -808,8 +812,8 @@
       if(i===0&&!shop.level&&!state.needlework.teaUnlocked){
         art('needleBasket',139,y+107,112,103);text('先靠绣作攒本钱，再开茶肆',195,y+245,16,TEAL,'center',true);text('完成一轮绣帕小单 · 交付5方即可开茶铺',195,y+278,10,FADE,'center');fitText(Needle.goal(state),195,y+306,12,b.w,INK,'center');button('tea-needle-first','回楚绣坊 · 接单挣钱',b.x,b.bottom-45,b.w,42,needleHome,{type:'gold',size:16});return;
       }
-      text('营业制作位',b.x,y+117,11,FADE);
-      text(shop.level>=3?'双工作台 + 辅台':'工作台 + 辅台',b.x,y+142,19,TEAL,'left',true);
+      text(!shop.level&&i>0?'下一间铺子的手艺':'营业制作位',b.x,y+117,11,FADE);
+      fitText(!shop.level&&i===1?'调香 · 装囊 · 压香印':!shop.level&&i===2?'蒸糕 · 压花 · 烘焙':shop.level>=3?'双工作台 + 辅台':'工作台 + 辅台',b.x,y+142,17,178,TEAL,'left',true);
       text('扩建收益',b.x+184,y+117,11,FADE);
       text(shop.level===2?'解锁第二工作台':'缩短制作时间',b.x+184,y+141,13,INK);
       const staff=C.PARTNERS.find(p=>p.id===shop.staff);
@@ -821,8 +825,8 @@
       const next=shop.level>=9?'本版已满级':`${shop.level?'扩建店铺':'开门迎客'} · ${currency(C.cost(state,i))}两`;
       button('upgrade',next,b.x,b.bottom-96,b.w,43,()=>{const r=C.upgrade(state,i);say(r.message,!r.ok);if(r.ok){chime('upgrade');persist();if(state.shopStories.pending.length)enterOpening({screen:'game',modal:'shop',shop:i});}},{type:'gold',disabled:shop.level>=9,size:15});
       const bw=(b.w-14)/2;
-      button('assign','安排伙伴',b.x,b.bottom-41,bw,39,()=>open('partners'),{type:'outline'});
-      button('go-service','亲自营业',b.x+bw+14,b.bottom-41,bw,39,()=>i===0&&!state.guide.done?open('welcome'):open('service-brief'),{type:'outline'});
+      button('assign','安排伙伴',b.x,b.bottom-41,bw,39,()=>open('partners'),{type:'outline',disabled:!shop.level});
+      button('go-service','亲自营业',b.x+bw+14,b.bottom-41,bw,39,()=>i===0&&!state.guide.done?open('welcome'):open('service-brief'),{type:'outline',disabled:!shop.level});
     }
     function inventory(x,y){C.SHOPS.forEach((d,i)=>{icon(d.id,x+i*99,y-10,18,TEAL);text(`${d.good} ${state.shops[i].stock}`,x+24+i*99,y,11,INK);});}
     function orderCard(o,x,y,w,slot,isClue,compact){
@@ -1067,7 +1071,7 @@
     function syncMusic(){const cue=['title','intro','opening-story'].includes(screen)?'prologue':'business',paused=screen==='intro'&&introPausedAt!==null,key=[cue,state.sound,paused,musicRevision].join(':');if(key!==lastMusicKey){lastMusicKey=key;if(env.music)env.music(state.sound,{cue,paused,revision:musicRevision});}}
     function draw(now){
       if(hidden)return;
-      hits=[];panelReview=null;paintReview=[];needleReview=null;guideReview=null;quietReview=[];panelTransform=null;ctx.globalAlpha=1;ctx.clearRect(0,0,W,H);
+      hits=[];panelReview=null;paintReview=[];needleReview=null;guideReview=null;paragraphReview=[];quietReview=[];panelTransform=null;ctx.globalAlpha=1;ctx.clearRect(0,0,W,H);
       if(!ready){ctx.fillStyle=TEAL;ctx.fillRect(0,0,W,H);text(loadFailed?'画面未能展开，请重新进入':'正在点亮长街',195,H/2,20,'#e7d6ae','center');if(!loadFailed)text(Math.round(loadProgress*100)+'%',195,H/2+36,13,'#d8c18c','center');return;}
       if(screen==='opening-story'){drawOpeningStory(now);if(modal)drawModal();}else if(screen==='needle-lobby'){drawNeedleLobby(now);if(modal)drawModal();}else if(screen==='needlework'){drawNeedleWork(now);if(modal)drawModal();else needleGuideOverlay(now);}else if(screen==='title')brandTitle(now);else if(screen==='intro')drawIntro(now);else if(screen==='decorate'){drawDecorate(now);if(modal)drawModal();}else if(screen==='festival'){festivalScreen(now);if(modal)drawModal();}else if(screen==='service'){drawService(now);guideOverlay(now);if(modal)drawModal();}else{drawGame(now);if(modal)drawModal();}
       syncMusic();drawFeedback(now);
@@ -1127,7 +1131,7 @@
       Street.focus(streetCamera,streetViewport(),state.district);await streetArt.preload(streetTiles(streetViewport()).map(t=>t.id));ready=true;persist();draw(Date.now());if(env.onReady)env.onReady();raf=env.requestFrame(loop);
     }
     init();
-    return{locateShop,pointer,pointerDown,pointerMove,pointerUp,pointerCancel,key,resize,hide,show,click,save:persist,inspect:()=>({screen,modal,ready,width:W,height:H,scale,selectedShop,selectedSlot,selectedActivity,bookTab,bookPage,bookShop,stockSlot,stockPage,mapSelected,intro:screen==='intro'?Opening.at(introElapsed(Date.now())):null,introPaused:introPausedAt!==null,crewPage,decorPage,serviceResult,street:{...streetCamera,art:streetArt.inspect(),viewport:streetViewport(),width:Street.WIDTH,height:Street.HEIGHT,browsing:Street.nearest(streetCamera,streetViewport()),dragging:!!streetGesture?.moved},walkers:[],rank:Profile.rank(state),needlework:JSON.parse(JSON.stringify(state.needlework)),layout:env.review?{panel:panelReview,texts:paintReview,needle:needleReview,guide:guideReview,quiet:quietReview}:null,guideFlow:guideFlow?{step:guideFlow.step}:null,state:JSON.parse(JSON.stringify(state)),service:service?JSON.parse(JSON.stringify(service)):null,buttons:hits.map(({id,label,x,y,w,h,disabled,visual,guidePoint,painted})=>({id,label,x,y,w,h,disabled,visual,guidePoint,painted}))}),destroy:()=>{persist();streetArt.destroy();if(env.cancelFrame)env.cancelFrame(raf);}};
+    return{locateShop,pointer,pointerDown,pointerMove,pointerUp,pointerCancel,key,resize,hide,show,click,save:persist,inspect:()=>({screen,modal,ready,width:W,height:H,scale,selectedShop,selectedSlot,selectedActivity,bookTab,bookPage,bookShop,stockSlot,stockPage,mapSelected,intro:screen==='intro'?Opening.at(introElapsed(Date.now())):null,introPaused:introPausedAt!==null,crewPage,decorPage,serviceResult,street:{...streetCamera,art:streetArt.inspect(),viewport:streetViewport(),width:Street.WIDTH,height:Street.HEIGHT,browsing:Street.nearest(streetCamera,streetViewport()),dragging:!!streetGesture?.moved},walkers:[],rank:Profile.rank(state),needlework:JSON.parse(JSON.stringify(state.needlework)),layout:env.review?{panel:panelReview,texts:paintReview,paragraphs:paragraphReview,needle:needleReview,guide:guideReview,quiet:quietReview}:null,guideFlow:guideFlow?{step:guideFlow.step}:null,state:JSON.parse(JSON.stringify(state)),service:service?JSON.parse(JSON.stringify(service)):null,buttons:hits.map(({id,label,x,y,w,h,disabled,visual,guidePoint,painted})=>({id,label,x,y,w,h,disabled,visual,guidePoint,painted}))}),destroy:()=>{persist();streetArt.destroy();if(env.cancelFrame)env.cancelFrame(raf);}};
   }
   return{create};
 });

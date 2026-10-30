@@ -1,6 +1,6 @@
 (function(root,factory){if(typeof module==='object'&&module.exports)module.exports=factory();else root.ChuerMusic=factory();})(typeof globalThis!=='undefined'?globalThis:this,function(){
   'use strict';
-  const TRACKS={prologue:{src:'assets/prologue.mp3',volume:.26},business:{src:'assets/theme.mp3',volume:.30}};
+  const TRACKS={prologue:{src:'assets/prologue-v23.mp3',volume:.26},business:{src:'assets/theme-v23.mp3',volume:.30}};
   function create(env){
     let player=null,cue='prologue',enabled=true,paused=false,hidden=false,unlocked=false,playing=false,revision=0,timer=null,disposed=false;
     const schedule=env.schedule||((fn,ms)=>setTimeout(fn,ms)),cancel=env.cancel||clearTimeout,now=env.now||Date.now;

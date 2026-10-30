@@ -134,12 +134,14 @@
     const shop=s.shops[i],def=SHOPS[i];
     if(i===0&&!shop.level&&!s.needlework.teaUnlocked)return{ok:false,message:'先完成一轮正式绣帕小单，交付5方绣帕后即可开茶铺'};
     if(i>0&&!shop.level&&!s.shops[0].level)return{ok:false,message:'先筹开茶铺，再逐步经营其他店铺'};
+    if(i===2&&!shop.level&&!s.shops[1].level)return{ok:false,message:'先开张闻溪香坊，循着香单再筹开点心铺'};
     if(shop.level>=9)return{ok:false,message:'这间店已升至本版最高等级'};
     if(!shop.level&&(s.fame<(def.fame||0)))return{ok:false,message:`还需声望 ${def.fame-s.fame}，可先做街坊订单`};
     const c=cost(s,i);if(s.silver<c)return{ok:false,message:`还差 ${Math.ceil(c-s.silver)} 银两，收取营业收益或交付订单即可`};
     s.silver-=c;shop.level++;if(shop.level===1){shop.stock+=def.gift;Story.enqueue(s,['tea','incense','pastry'][i]);}
     return{ok:true,message:shop.level===1?`${def.name}，开门迎客`:`${def.name}升至${shop.level}级`};
   }
+  function nextShop(s){const i=s.shops.findIndex(x=>!x.level);if(i<0||i===0&&!s.needlework.teaUnlocked)return null;const d=SHOPS[i],price=cost(s,i);return{index:i,name:d.name,short:d.short,price,fame:d.fame||0,needSilver:Math.max(0,price-s.silver),needFame:Math.max(0,(d.fame||0)-s.fame),ready:s.silver>=price&&s.fame>=(d.fame||0)};}
   function assign(s,person,shopIndex) {
     if(!s.crew.includes(person)||!PARTNERS.some(p=>p.id===person)||!s.shops[shopIndex]||!s.shops[shopIndex].level)return false;
     s.shops.forEach(x=>{if(x.staff===person)x.staff=null;});s.shops[shopIndex].staff=person;return true;
@@ -194,5 +196,5 @@
   function boost(s) {if(s.boost<1)return false;s.boost--;s.shops.forEach((x,i)=>{if(x.level)x.stock=Math.min(SHOPS[i].cap,x.stock+4);});return true;}
   function chapter(s){return s.clues>=2?3:s.clues>=1?2:1;}
   function tier(level){return level>=5?3:level>=3?2:level>=1?1:0;}
-  return {STORYLINE:Story,NEEDLEWORK:Needle,PROFILE:Profile,GUIDE:Guide,EVENTS:Events,WORLD:W,GROWTH:G,CATALOG:G.CATALOG,ENERGY:E,unlockedOrders,ORDER_TEMPLATES,awardService,VERSION,SHOPS,PARTNERS,STAGES,QUESTS,STORIES,SKUS,CLUE_ORDERS,fresh,restore,advance,offline,collect,upgrade,assign,rate,totalRate,cost,multiplier,questReady,claimQuest,availableOrder,canDeliver,deliver,clueAvailable,buy,boost,chapter,tier};
+  return {STORYLINE:Story,NEEDLEWORK:Needle,PROFILE:Profile,GUIDE:Guide,EVENTS:Events,WORLD:W,GROWTH:G,CATALOG:G.CATALOG,ENERGY:E,unlockedOrders,ORDER_TEMPLATES,awardService,VERSION,SHOPS,PARTNERS,STAGES,QUESTS,STORIES,SKUS,CLUE_ORDERS,fresh,restore,advance,offline,collect,upgrade,assign,rate,totalRate,cost,multiplier,questReady,claimQuest,availableOrder,canDeliver,deliver,clueAvailable,buy,boost,chapter,tier,nextShop};
 });
